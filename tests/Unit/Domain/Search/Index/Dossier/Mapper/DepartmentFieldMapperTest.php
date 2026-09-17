@@ -1,0 +1,78 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Domain\Search\Index\Dossier\Mapper;
+
+use Mockery;
+use PHPUnit\Framework\Attributes\DataProvider;
+use Shared\Domain\Department\Department;
+use Shared\Domain\Search\Index\Dossier\Mapper\DepartmentFieldMapper;
+use Shared\Tests\Unit\UnitTestCase;
+
+class DepartmentFieldMapperTest extends UnitTestCase
+{
+    public function testFromDepartment(): void
+    {
+        $department = Mockery::mock(Department::class);
+        $department->expects('getName')->andReturn('Foo');
+        $department->expects('getShortTag')->andReturn('F');
+
+        $value = DepartmentFieldMapper::fromDepartment($department);
+
+        self::assertEquals('F', $value->getValue());
+        self::assertEquals('Foo', $value->getDescription());
+        self::assertEquals('F|Foo', $value->getIndexValue());
+    }
+
+    #[DataProvider('fromStringProvider')]
+    public function testFromString(
+        string $rawValue,
+        ?string $expectedValue,
+        string $expectedDescription,
+    ): void {
+        $value = DepartmentFieldMapper::fromString($rawValue);
+
+        self::assertEquals($expectedValue, $value->getValue());
+        self::assertEquals($expectedDescription, $value->getDescription());
+        self::assertEquals($rawValue, $value->getIndexValue());
+    }
+
+    /**
+     * @return array<array-key,array{
+     *     rawValue: string,
+     *     expectedValue: ?string,
+     *     expectedDescription: string,
+     * }>
+     */
+    public static function fromStringProvider(): array
+    {
+        return [
+            'simple-string-without-abbreviation' => [
+                'rawValue' => 'abc',
+                'expectedValue' => 'abc',
+                'expectedDescription' => 'abc',
+            ],
+            'simple-string-with-abbreviation' => [
+                'rawValue' => 'abc|def',
+                'expectedValue' => 'abc',
+                'expectedDescription' => 'def',
+            ],
+            'empty-string' => [
+                'rawValue' => '',
+                'expectedValue' => null,
+                'expectedDescription' => '',
+            ],
+            'multiple-separators' => [
+                'rawValue' => 'abc|def|ghi',
+                'expectedValue' => 'abc',
+                'expectedDescription' => 'def|ghi',
+            ],
+            'multibyte-description-survives-ascii-byte-split' => [
+                'rawValue' => 'abc|wëreld',
+                'expectedValue' => 'abc',
+                'expectedDescription' => 'wëreld',
+            ],
+        ];
+    }
+}

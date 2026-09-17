@@ -1,0 +1,91 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\DataCollector;
+
+use Elastic\Elasticsearch\Response\Elasticsearch;
+use Symfony\Bundle\FrameworkBundle\DataCollector\AbstractDataCollector;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Throwable;
+use Webmozart\Assert\Assert;
+
+use function array_key_exists;
+use function is_array;
+use function key_exists;
+
+/**
+ * A data collector for elasticsearch calls so we can display them in the debug profiler toolbar.
+ */
+class ElasticCollector extends AbstractDataCollector
+{
+    protected bool $enabled = true;
+
+    public function collect(Request $request, Response $response, ?Throwable $exception = null): void
+    {
+    }
+
+    public static function getTemplate(): ?string
+    {
+        return 'profiler/elastic-search.html.twig';
+    }
+
+    /**
+     * @return array<array-key, mixed>
+     */
+    public function getCalls(): array
+    {
+        if (! is_array($this->data)) {
+            return [];
+        }
+
+        if (! array_key_exists('calls', $this->data)) {
+            return [];
+        }
+
+        Assert::isArray($this->data['calls']);
+
+        return $this->data['calls'];
+    }
+
+    /**
+     * @param array<array-key, mixed> $arguments
+     */
+    public function addCall(string $name, array $arguments, Elasticsearch $response, string $type = 'array'): void
+    {
+        if (! $this->enabled) {
+            return;
+        }
+
+        $response = match ($type) {
+            'bool' => $response->asBool(),
+            'string' => $response->asString(),
+            default => $response->asArray(),
+        };
+
+        Assert::isArray($this->data);
+
+        if (! key_exists('calls', $this->data)) {
+            $this->data['calls'] = [];
+        }
+
+        Assert::isArray($this->data['calls']);
+
+        $this->data['calls'][] = [
+            'name' => $name,
+            'arguments' => $arguments,
+            'response' => $response,
+        ];
+    }
+
+    public function disable(): void
+    {
+        $this->enabled = false;
+    }
+
+    public function enable(): void
+    {
+        $this->enabled = true;
+    }
+}

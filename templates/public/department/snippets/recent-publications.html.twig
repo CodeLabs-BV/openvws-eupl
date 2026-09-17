@@ -1,0 +1,23 @@
+{% if recents | length > 0 %}
+    <h2 class="woo-h2 mb-4">{{ 'public.publications.recent_publications' | trans }}</h2>
+
+    <ul>
+        {% for recentDossier in recents %}
+            <li class="pb-4">
+                <h3 class="woo-h3">
+                    <a class="block pb-1 pt-4 woo-a woo-a--reverse-underline" href="{{ dossier_details_path(recentDossier.reference) }}">
+                        {{ recentDossier.reference.title | default('public.dossiers.decision.no_title' | trans) }}
+                    </a>
+                </h3>
+                <div class="font-bold">
+                    {{ 'global.published_on' | trans }} <time datetime="{{ recentDossier.publicationDate | date("Y-m-d") }}">{{ recentDossier.publicationDate | format_date('long') }}</time>
+                </div>
+                {{ recentDossier.reference.type | trans }}
+            </li>
+        {% endfor %}
+    </ul>
+
+    {% if hasLinkToAll ?? true %}
+        <p class="mt-4"><twig:Public:ArrowedBoldLink to="{{ path('app_woodecision_index') }}">{{ 'public.dossiers.decision.all_decisions' | trans }}</twig:Public:ArrowedBoldLink></p>
+    {% endif %}
+{% endif %}

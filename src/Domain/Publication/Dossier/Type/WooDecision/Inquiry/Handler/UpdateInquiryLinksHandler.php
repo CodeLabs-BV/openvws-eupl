@@ -1,0 +1,52 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Domain\Publication\Dossier\Type\WooDecision\Inquiry\Handler;
+
+use Exception;
+use Psr\Log\LoggerInterface;
+use Shared\Domain\Organisation\OrganisationRepository;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Inquiry\Command\UpdateInquiryLinksCommand;
+use Shared\Service\Inquiry\InquiryService;
+use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+
+#[AsMessageHandler]
+class UpdateInquiryLinksHandler
+{
+    public function __construct(
+        private readonly OrganisationRepository $organisationRepo,
+        private readonly LoggerInterface $logger,
+        private readonly InquiryService $inquiryService,
+    ) {
+    }
+
+    public function __invoke(UpdateInquiryLinksCommand $message): void
+    {
+        try {
+            $organisation = $this->organisationRepo->find($message->getOrganisationId());
+            if (! $organisation) {
+                $this->logger->warning('No organisation found for this message', [
+                    'uuid' => $message->getOrganisationId(),
+                ]);
+
+                return;
+            }
+
+            $this->inquiryService->updateInquiryLinks(
+                $organisation,
+                $message->getInquiryNumber(),
+                $message->getDocIdsToAdd(),
+                $message->getDocIdsToDelete(),
+                $message->getDossierIdsToAdd(),
+            );
+        } catch (Exception $e) {
+            $this->logger->error('Failed to update inquiry links', [
+                'inquiryNumber' => $message->getInquiryNumber(),
+                'adds' => $message->getDocIdsToAdd(),
+                'deletes' => $message->getDocIdsToDelete(),
+                'exception' => $e->getMessage(),
+            ]);
+        }
+    }
+}

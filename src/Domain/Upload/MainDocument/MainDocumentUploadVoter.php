@@ -1,0 +1,37 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Domain\Upload\MainDocument;
+
+use Shared\Domain\Upload\Dossier\DossierUploadRequestValidator;
+use Shared\Domain\Upload\UploadRequest;
+use Shared\Service\Uploader\UploadGroupId;
+use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Symfony\Component\Security\Core\Authorization\Voter\Vote;
+use Symfony\Component\Security\Core\Authorization\Voter\Voter;
+
+class MainDocumentUploadVoter extends Voter
+{
+    public function __construct(
+        private readonly DossierUploadRequestValidator $requestValidator,
+    ) {
+    }
+
+    protected function supports(string $attribute, mixed $subject): bool
+    {
+        return $this->requestValidator->supports(
+            $attribute,
+            $subject,
+            UploadGroupId::MAIN_DOCUMENTS,
+        );
+    }
+
+    /**
+     * @param UploadRequest $subject
+     */
+    protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token, ?Vote $vote = null): bool
+    {
+        return $this->requestValidator->isValidUploadRequest($subject);
+    }
+}

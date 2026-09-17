@@ -1,0 +1,13 @@
+@utility woo-logo {
+  @apply block max-w-xl mx-auto relative text-center pb-6 overflow-hidden;
+  @apply focus:-outline-offset-2;
+}
+
+@utility woo-logo__img {
+  @apply -mt-[20px] w-[40px] h-[80px] sm:mt-0 sm:w-[50px] sm:h-[100px];
+}
+
+@utility woo-logo__text {
+  @apply bottom-8 font-serif leading-4 left-1/2 text-left text-sm absolute ml-[calc(calc(50px/2)+theme(space.4))];
+  @apply sm:text-lg sm:bottom-9 sm:leading-none;
+}

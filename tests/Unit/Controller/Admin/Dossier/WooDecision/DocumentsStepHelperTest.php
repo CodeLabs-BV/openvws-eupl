@@ -1,0 +1,91 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Controller\Admin\Dossier\WooDecision;
+
+use Mockery;
+use Mockery\MockInterface;
+use Shared\Controller\Admin\Dossier\WooDecision\DocumentsStepHelper;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\ProductionReport\ProductionReportProcessRun;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\ViewModel\ProductionReportStatus;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecision;
+use Shared\Form\Dossier\WooDecision\InventoryType;
+use Shared\Form\Dossier\WooDecision\TranslatableFormErrorMapper;
+use Shared\Tests\Unit\UnitTestCase;
+use Symfony\Component\Form\FormFactoryInterface;
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\Form\FormView;
+use Twig\Environment;
+
+class DocumentsStepHelperTest extends UnitTestCase
+{
+    private TranslatableFormErrorMapper&MockInterface $formErrorMapper;
+    private Environment&MockInterface $twig;
+    private FormFactoryInterface&MockInterface $formFactory;
+    private DocumentsStepHelper $helper;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->formErrorMapper = Mockery::mock(TranslatableFormErrorMapper::class);
+        $this->twig = Mockery::mock(Environment::class);
+        $this->formFactory = Mockery::mock(FormFactoryInterface::class);
+
+        $this->helper = new DocumentsStepHelper(
+            $this->formErrorMapper,
+            $this->twig,
+            $this->formFactory,
+        );
+    }
+
+    public function testGetProductionReportProcessResponse(): void
+    {
+        $dossier = Mockery::mock(WooDecision::class);
+
+        $formView = Mockery::mock(FormView::class);
+
+        $form = Mockery::mock(FormInterface::class);
+        $form->expects('createView')
+            ->andReturn($formView);
+
+        $this->formFactory->expects('create')
+            ->with(InventoryType::class, $dossier)
+            ->andReturn($form);
+
+        $processRun = Mockery::mock(ProductionReportProcessRun::class);
+        $processRun->expects('isFailed')->andReturnTrue();
+        $processRun->expects('hasErrors')->andReturnTrue();
+        $processRun->expects('isPending')->andReturnFalse();
+        $processRun->expects('isConfirmed')->andReturnFalse();
+        $processRun->expects('isComparing')->andReturnFalse();
+        $processRun->expects('isUpdating')->andReturnFalse();
+        $processRun->expects('isNotFinal')->andReturnFalse();
+        $processRun->expects('isRejected')->andReturnFalse();
+        $processRun->expects('needsConfirmation')->andReturnFalse();
+
+        $dossier->expects('getProcessRun')
+            ->times(7)
+            ->andReturn($processRun);
+
+        $this->formErrorMapper
+            ->expects('mapRunErrorsToForm')
+            ->with($processRun, $form);
+
+        $this->twig
+            ->expects('render')
+            ->with('admin/dossier/woo-decision/documents/processrun.html.twig', [
+                'dossier' => $dossier,
+                'processRun' => $processRun,
+                'inventoryForm' => $formView,
+                'inventoryStatus' => new ProductionReportStatus($dossier),
+                'ajax' => true,
+            ])
+            ->andReturn('foo');
+
+        $this->assertMatchesJsonSnapshot(
+            $this->helper->getProductionReportProcessResponse($dossier)->getContent() ?: '',
+        );
+    }
+}

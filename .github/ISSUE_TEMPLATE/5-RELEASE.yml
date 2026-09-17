@@ -1,0 +1,36 @@
+name: Release ticket
+description: Create a release ticket for WOO-WEB (in English).
+title: "WOO: release [VUL TAG IN] naar PROD"
+labels: ["Release"]
+projects: ["minvws/30"]
+body:
+  - type: input
+    attributes:
+      label: "Current version WOO-WEB on PROD:"
+      placeholder: v1.11.0
+  - type: input
+    attributes:
+      label: "New version WOO-WEB on PROD:"
+      placeholder: v1.12.0
+  - type: checkboxes
+    attributes:
+      label: ElasticSearch rollover required?
+      options:
+      - label: 'Yes'
+      - label: 'No'
+  - type: checkboxes
+    attributes:
+      label: Database updates required?
+      options:
+      - label: 'Yes'
+      - label: 'No'
+  - type: textarea
+    attributes:
+      label: 'Actions required before, during or right after deployment:'
+  - type: textarea
+    attributes:
+      label: 'Tickets in release:'
+  - type: textarea
+    attributes:
+      label: 'Checklist'
+      value: Copy checklist content from https://github.com/minvws/nl-rdo-quality-coordination/blob/main/Projectdocumentatie/Templates/Release%20Checklist.md

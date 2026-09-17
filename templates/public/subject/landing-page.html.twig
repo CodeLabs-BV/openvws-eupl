@@ -1,0 +1,51 @@
+{% extends 'public/base.html.twig' %}
+
+{% set page_title = subject.landingPageTitle is not empty ? subject.landingPageTitle : subject.name %}
+
+{% import 'public/macros/content-tree.html.twig' as contentTree %}
+
+{% block search_form_top %}<twig:Public:SearchForm />{% endblock %}
+
+{% block body %}
+    <section class="woo-container woo-container--sm">
+        <div class="woo-readable-width" data-e2e-name="subject-landing-page-body">
+            <h1 class="woo-h1 woo-h1-spacing font-normal">{{ page_title }}</h1>
+
+            {% if subject.landingPageDescription is not empty %}
+                <div class="bg-woo-gray-100 p-6 my-10">
+                    <div class="woo-readable-width woo-rich-text">
+                        {{ subject.landingPageDescription | render_markdown }}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        {% if subject.hasVisibleLandingPageContentTree %}
+            {% if subject.landingPageContentTree.title is not empty %}
+                <h2 class="woo-h2 mb-2">{{ subject.landingPageContentTree.title }}</h2>
+            {% endif %}
+
+            {% if subject.landingPageContentTree.intro is not empty %}
+                <div class="woo-rich-text">
+                    {{ subject.landingPageContentTree.intro | render_markdown }}
+                </div>
+            {% endif %}
+
+            {% if subject.landingPageContentTree.children is not empty %}
+                <ul class="woo-accordion-list mt-4">
+                    {{ contentTree.render(subject.landingPageContentTree.children) }}
+                </ul>
+            {% endif %}
+
+            {% if subject.landingPageContentTree.outro is not empty %}
+                <div class="woo-rich-text mt-4">
+                    {{ subject.landingPageContentTree.outro | render_markdown }}
+                </div>
+            {% endif %}
+        {% endif %}
+
+        <p class="mt-4">
+            <twig:Public:ArrowedBoldLink to="{{ subject.searchUrl }}">{{ 'public.subject.search' | trans({'subject': subject.name}) }}</twig:Public:ArrowedBoldLink>
+        </p>
+    </section>
+{% endblock %}

@@ -1,0 +1,231 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Domain\Publication\Dossier\Type\WooDecision\Inquiry;
+
+use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\Query;
+use Doctrine\ORM\Query\Expr\Join;
+use Doctrine\ORM\QueryBuilder;
+use Doctrine\Persistence\ManagerRegistry;
+use Shared\Domain\Organisation\Organisation;
+use Shared\Domain\Publication\Dossier\DossierStatus;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Document\Document;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Judgement;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecision;
+use Webmozart\Assert\Assert;
+
+use function intval;
+use function sprintf;
+
+/**
+ * @extends ServiceEntityRepository<Inquiry>
+ */
+class InquiryRepository extends ServiceEntityRepository
+{
+    public function __construct(ManagerRegistry $registry)
+    {
+        parent::__construct($registry, Inquiry::class);
+    }
+
+    public function save(Inquiry $entity, bool $flush = false): void
+    {
+        $this->getEntityManager()->persist($entity);
+
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
+    public function remove(Inquiry $entity, bool $flush = false): void
+    {
+        $this->getEntityManager()->remove($entity);
+
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
+    /**
+     * @return array<array-key, Inquiry>
+     */
+    public function findByDossier(WooDecision $dossier): array
+    {
+        return $this->createQueryBuilder('i')
+            ->join('i.dossiers', 'd')
+            ->andWhere('d.id = :dossierId')
+            ->setParameter('dossierId', $dossier->getId())
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function getQueryWithDocCountAndDossierCount(Organisation $organisation): Query
+    {
+        $documentCountDQL = sprintf(
+            '(%s) AS documentCount',
+            $this->getEntityManager()->createQueryBuilder()
+                ->select('count(doc_sub.id)')
+                ->from(Inquiry::class, 'inq_sub_doc')
+                ->join('inq_sub_doc.documents', 'doc_sub')
+                ->where('inq_sub_doc.id = inq.id')
+                ->getDQL(),
+        );
+
+        $dossierCountDQL = sprintf(
+            '(%s) AS dossierCount',
+            $this->getEntityManager()->createQueryBuilder()
+                ->select('count(dos_sub.id)')
+                ->from(Inquiry::class, 'inq_sub_dos')
+                ->join('inq_sub_dos.dossiers', 'dos_sub')
+                ->where('inq_sub_dos.id = inq.id')
+                ->getDQL(),
+        );
+
+        return $this->createQueryBuilder('inq')
+            ->select('inq as inquiry')
+            ->addSelect('inv')
+            ->addSelect($documentCountDQL)
+            ->addSelect($dossierCountDQL)
+            ->leftJoin('inq.inventory', 'inv')
+            ->where('inq.organisation = :organisation')
+            ->orderBy('inq.updatedAt', 'DESC')
+            ->setParameter('organisation', $organisation)
+            ->getQuery();
+    }
+
+    public function getDocsForInquiryDossierQueryBuilder(Inquiry $inquiry, WooDecision $dossier): QueryBuilder
+    {
+        return $this->getEntityManager()->createQueryBuilder()
+            ->select('doc, dos')
+            ->from(Document::class, 'doc')
+            ->innerJoin('doc.inquiries', 'inq', Join::WITH, 'inq.id = :inquiryId')
+            ->innerJoin('doc.dossiers', 'dos', Join::WITH, 'dos.id = :dossierId')
+            ->where('dos.status IN (:statuses)')
+            ->setParameter('inquiryId', $inquiry->getId())
+            ->setParameter('dossierId', $dossier->getId())
+            ->setParameter('statuses', [
+                DossierStatus::PREVIEW,
+                DossierStatus::PUBLISHED,
+            ]);
+    }
+
+    public function getDocumentCountSummary(Inquiry $inquiry): DocumentCountSummary
+    {
+        $row = $this->createQueryBuilder('inquiry')
+            ->select('SUM(CASE WHEN document.judgement = :alreadyPublic AND dossier.status IN (:statuses) THEN 1 ELSE 0 END) AS alreadyPublic')
+            ->addSelect('SUM(CASE WHEN document.judgement = :notPublic AND dossier.status IN (:statuses) THEN 1 ELSE 0 END) AS notPublic')
+            ->addSelect('SUM(CASE WHEN document.judgement = :partialPublic AND dossier.status IN (:statuses) THEN 1 ELSE 0 END) AS partialPublic')
+            ->addSelect('SUM(CASE WHEN document.judgement = :partialPublic AND document.suspended = true '
+                . 'AND dossier.status IN (:statuses) THEN 1 ELSE 0 END) AS partialPublicSuspended')
+            ->addSelect('SUM(CASE WHEN document.judgement = :partialPublic AND document.withdrawn = true '
+                . 'AND dossier.status IN (:statuses) THEN 1 ELSE 0 END) AS partialPublicWithdrawn')
+            ->addSelect('SUM(CASE WHEN document.judgement = :public AND dossier.status IN (:statuses) THEN 1 ELSE 0 END) AS public')
+            ->addSelect('SUM(CASE WHEN document.judgement = :public AND document.suspended = true '
+                . 'AND dossier.status IN (:statuses) THEN 1 ELSE 0 END) AS publicSuspended')
+            ->addSelect('SUM(CASE WHEN document.judgement = :public AND document.withdrawn = true '
+                . 'AND dossier.status IN (:statuses) THEN 1 ELSE 0 END) AS publicWithdrawn')
+            ->leftJoin('inquiry.documents', 'document')
+            ->leftJoin('document.dossiers', 'dossier')
+            ->where('inquiry.id = :inquiryId')
+            ->setParameter('inquiryId', $inquiry->getId())
+            ->setParameter('alreadyPublic', Judgement::ALREADY_PUBLIC->value)
+            ->setParameter('notPublic', Judgement::NOT_PUBLIC->value)
+            ->setParameter('partialPublic', Judgement::PARTIAL_PUBLIC->value)
+            ->setParameter('public', Judgement::PUBLIC->value)
+            ->setParameter('statuses', [DossierStatus::PREVIEW, DossierStatus::PUBLISHED])
+            ->getQuery()
+            ->getSingleResult();
+
+        Assert::isArray($row);
+        Assert::allNumeric($row);
+
+        return new DocumentCountSummary(
+            alreadyPublic: (int) $row['alreadyPublic'],
+            notPublic: (int) $row['notPublic'],
+            partialPublic: (int) $row['partialPublic'],
+            partialPublicSuspended: (int) $row['partialPublicSuspended'],
+            partialPublicWithdrawn: (int) $row['partialPublicWithdrawn'],
+            public: (int) $row['public'],
+            publicSuspended: (int) $row['publicSuspended'],
+            publicWithdrawn: (int) $row['publicWithdrawn'],
+        );
+    }
+
+    public function getDocumentsForPubliclyAvailableDossiers(Inquiry $inquiry): QueryBuilder
+    {
+        return $this->getEntityManager()->createQueryBuilder()
+            ->select('doc, dos')
+            ->from(Document::class, 'doc')
+            ->join('doc.inquiries', 'inq', Join::WITH, 'inq.id = :inquiryId')
+            ->join('doc.dossiers', 'dos')
+            ->where('inq.id = :inquiryId')
+            ->andWhere('dos.status IN (:statuses)')
+            ->setParameter('inquiryId', $inquiry->getId())
+            ->setParameter('statuses', [
+                DossierStatus::PREVIEW,
+                DossierStatus::PUBLISHED,
+            ]);
+    }
+
+    public function getDocumentsForBatchDownload(Inquiry $inquiry, ?WooDecision $wooDecision = null): QueryBuilder
+    {
+        $queryBuilder = $this->getEntityManager()->createQueryBuilder()
+            ->select('doc')
+            ->from(Document::class, 'doc')
+            ->join('doc.inquiries', 'inq', Join::WITH, 'inq.id = :inquiryId')
+            ->join('doc.dossiers', 'dos')
+            ->where('inq.id = :inquiryId')
+            ->andWhere('dos.status IN (:statuses)')
+            ->andWhere('doc.fileInfo.uploaded = true')
+            ->andWhere('doc.suspended = false')
+            ->andWhere('doc.withdrawn = false')
+            ->andWhere('doc.judgement IN(:judgements)')
+            ->setParameter('inquiryId', $inquiry->getId())
+            ->setParameter('statuses', [
+                DossierStatus::PREVIEW,
+                DossierStatus::PUBLISHED,
+            ])
+            ->setParameter('judgements', Judgement::atLeastPartialPublicValues());
+
+        if ($wooDecision instanceof WooDecision) {
+            $queryBuilder->andWhere('dos.id = :dossierId');
+            $queryBuilder->setParameter('dossierId', $wooDecision->getId());
+        }
+
+        return $queryBuilder;
+    }
+
+    public function countPubliclyAvailableDossiers(Inquiry $inquiry): int
+    {
+        return intval($this->createQueryBuilder('inq')
+            ->select('count(dos)')
+            ->join('inq.dossiers', 'dos')
+            ->where('inq.id = :inquiryId')
+            ->andWhere('dos.status IN (:statuses)')
+            ->setParameter('inquiryId', $inquiry->getId())
+            ->setParameter('statuses', [
+                DossierStatus::PREVIEW,
+                DossierStatus::PUBLISHED,
+            ])
+            ->getQuery()
+            ->getSingleScalarResult());
+    }
+
+    public function getDossiersForInquiryQueryBuilder(Inquiry $inquiry): QueryBuilder
+    {
+        return $this->getEntityManager()->createQueryBuilder()
+            ->select('dos')
+            ->addSelect('COUNT(doc) as docCount')
+            ->from(WooDecision::class, 'dos')
+            ->join('dos.inquiries', 'inq', Join::WITH, 'inq = :inquiry')
+            ->leftJoin('dos.documents', 'doc', Join::WITH, 'inq MEMBER OF doc.inquiries')
+            ->where('dos.status IN (:statuses)')
+            ->setParameter('inquiry', $inquiry)
+            ->setParameter('statuses', [
+                DossierStatus::PREVIEW,
+                DossierStatus::PUBLISHED,
+            ])
+            ->groupBy('dos.id');
+    }
+}

@@ -1,0 +1,68 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Domain\Publication\Dossier\Type\WooDecision\DocumentFile\Handler;
+
+use Psr\Log\LoggerInterface;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Document\DocumentFileProcessor;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\DocumentFile\Command\ProcessDocumentFileUpdateCommand;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\DocumentFile\DocumentFileService;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\DocumentFile\Enum\DocumentFileUpdateStatus;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\DocumentFile\Repository\DocumentFileUpdateRepository;
+use Shared\Domain\Upload\UploadedFile;
+use Shared\Service\Storage\EntityStorageService;
+use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+
+#[AsMessageHandler]
+readonly class ProcessDocumentFileUpdateHandler
+{
+    public function __construct(
+        private DocumentFileUpdateRepository $documentFileUpdateRepository,
+        private LoggerInterface $logger,
+        private EntityStorageService $entityStorageService,
+        private DocumentFileService $documentFileService,
+        private DocumentFileProcessor $fileProcessor,
+    ) {
+    }
+
+    public function __invoke(ProcessDocumentFileUpdateCommand $command): void
+    {
+        $documentFileUpdate = $this->documentFileUpdateRepository->find($command->id);
+        if ($documentFileUpdate === null) {
+            $this->logger->warning('No DocumentFileUpdate found for this command', [
+                'id' => $command->id,
+            ]);
+
+            return;
+        }
+
+        if (! $documentFileUpdate->getStatus()->isPending()) {
+            return;
+        }
+
+        $localFile = $this->entityStorageService->downloadEntity($documentFileUpdate);
+        if ($localFile === false) {
+            $this->logger->warning('No file could be downloaded for DocumentFileUpdate', [
+                'id' => $command->id,
+            ]);
+
+            return;
+        }
+
+        $this->fileProcessor->process(
+            new UploadedFile($localFile, $documentFileUpdate->getFileInfo()->getName()),
+            $documentFileUpdate->getDocumentFileSet()->getDossier(),
+            $documentFileUpdate->getDocument()->getDocumentId(),
+        );
+
+        // Remove the upload file as this has now been 'forwarded' to the Document entity
+        $this->entityStorageService->deleteAllFilesForEntity($documentFileUpdate);
+        $this->entityStorageService->removeDownload($localFile, true);
+        $documentFileUpdate->getFileInfo()->removeFileProperties();
+        $documentFileUpdate->setStatus(DocumentFileUpdateStatus::COMPLETED);
+        $this->documentFileUpdateRepository->save($documentFileUpdate, true);
+
+        $this->documentFileService->checkProcessingUpdatesCompletion($documentFileUpdate->getDocumentFileSet());
+    }
+}

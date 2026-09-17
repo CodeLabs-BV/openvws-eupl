@@ -1,0 +1,215 @@
+baseline:
+  skip: false
+  tags: []
+  request:
+    body:
+      departmentId: <ROBOT SELECT>
+      dateFrom: <ROBOT DATE -7>
+      dateTo: <ROBOT DATE -2>
+      dossierNumber: <ROBOT RANDOMIZE>
+      mainDocument:
+        fileName: dummy.txt
+        formalDate: <ROBOT DATE -7>
+        grounds: [<ROBOT RANDOMIZE>]
+        language: NLD
+        type: c_386e74cb
+      parties:
+        - <ROBOT RANDOM DEPARTMENT ID>
+        - <ROBOT RANDOM DEPARTMENT ID>
+      previousVersionLink: https://example.com
+      publicationDate: <ROBOT DATE -1>
+      subjectId: <ROBOT SELECT>
+      summary: |
+        Officer factor language reveal Mrs color space. Always conference themselves study over.
+        Seem happen civil begin that out. Occur either couple parent appear operation hair simple.
+      title: <ROBOT RANDOMIZE>
+      attachments:
+        - externalId: <PYTHON GUID>
+          fileName: kranten artikel.txt
+          formalDate: <ROBOT DATE -12>
+          grounds: [<ROBOT RANDOMIZE>]
+          language: NLD
+          type: c_c2f56984
+    files:
+      mainDocument:
+        file: files/dummy.txt
+        expected_response_status: 204
+      attachments:
+        - externalId: <PYTHON GUID>
+          file: files/dummy.txt
+          expected_response_status: 204
+    expected_response_status: 200
+    expected_publication_status: published
+
+testcases:
+- title: Happy flow
+  steps:
+    - name: Create dossier
+      request: {}
+
+- title: Create without attachments
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          attachments: []
+        files:
+          attachments: []
+
+- title: Create without uploading main document
+  steps:
+    - name: Create dossier
+      request:
+        files:
+          mainDocument:
+        expected_publication_status: concept
+
+- title: Create without attachments and without main document
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          attachments: []
+        files:
+          attachments: []
+          mainDocument:
+        expected_publication_status: concept
+
+- title: Create with 3 parties
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          parties:
+            - Party 1
+            - Party 2
+            - <ROBOT RANDOM DEPARTMENT ID>
+
+- title: Create with max parties (10)
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          parties:
+            - Party 1
+            - Party 2
+            - Party 3
+            - Party 4
+            - Party 5
+            - Party 6
+            - Party 7
+            - Party 8
+            - Party 9
+            - Party 10
+
+- title: Create with too few parties (should fail)
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          parties:
+            - <ROBOT RANDOM DEPARTMENT ID>
+        expected_response_status: 422
+
+- title: Create with too many parties (should fail)
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          parties:
+            - Party 1
+            - Party 2
+            - Party 3
+            - Party 4
+            - Party 5
+            - Party 6
+            - Party 7
+            - Party 8
+            - Party 9
+            - Party 10
+            - Party 11
+        expected_response_status: 422
+
+- title: Upload the exact same request twice
+  steps:
+    - name: Create dossier
+      request:
+        files:
+          mainDocument:
+          attachments: []
+          documents: []
+        expected_publication_status: concept
+    - name: Create dossier again with identical request
+      reuse_previous_request: true
+      request:
+        files:
+          mainDocument:
+          attachments: []
+        expected_publication_status: concept
+
+- title: HAL links should be reachable
+  steps:
+    - name: Create dossier
+      request: {}
+    - name: Verify HAL links
+      keyword:
+        name: Verify HAL Links Are Reachable
+
+- title: Update dossier metadata after publish
+  steps:
+    - name: Create dossier
+      request: {}
+    - name: Change title before resend
+      keyword:
+        name: Update Previous Request Body
+        args:
+          - title
+          - Updated title after publish
+    - name: Re-send with updated title while published
+      reuse_previous_request: true
+      request:
+        files:
+          mainDocument:
+          attachments: []
+        expected_publication_status: published
+
+- title: Adding an attachment to a published dossier is allowed
+  steps:
+    - name: Create dossier
+      request: {}
+    - name: Add an extra attachment before resend
+      keyword:
+        name: Add Generated Attachment To Previous Request Body
+        args:
+          - - c_c2f56984
+    - name: Re-send with an extra attachment while published
+      reuse_previous_request: true
+      request:
+        files:
+          mainDocument:
+          attachments: []
+        expected_response_status: 200
+    - name: Upload the new attachment's file
+      keyword:
+        name: Upload Generated Attachment
+        args:
+          - covenant
+
+- title: Removing an attachment from a published dossier is rejected
+  skip: false
+  steps:
+    - name: Create dossier
+      request: {}
+    - name: Remove attachments before resend
+      keyword:
+        name: Update Previous Request Body
+        args:
+          - attachments
+          - []
+    - name: Re-send with no attachments while published
+      reuse_previous_request: true
+      request:
+        files:
+          mainDocument:
+          attachments: []
+        expected_response_status: 422

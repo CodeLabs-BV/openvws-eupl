@@ -1,0 +1,153 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Domain\Publication\Dossier\Type\WooDecision;
+
+use Mockery;
+use Mockery\MockInterface;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Decision\UpdateDecisionCommand;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Document\Command\WithDrawAllDocumentsCommand;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Document\DocumentWithdrawReason;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Inquiry\Command\GenerateInquiryInventoryCommand;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Inquiry\Command\UpdateInquiryLinksCommand;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Inventory\Command\RemoveDocumentsCommand;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Inventory\Command\RemoveInventoryCommand;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecision;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecisionDispatcher;
+use Shared\Domain\Upload\WooDecision\ProcessUploadedDocumentsCommand;
+use Shared\Tests\Unit\UnitTestCase;
+use stdClass;
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Uid\Uuid;
+
+class WooDecisionDispatcherTest extends UnitTestCase
+{
+    private MessageBusInterface&MockInterface $messageBus;
+    private WooDecisionDispatcher $dispatcher;
+
+    protected function setUp(): void
+    {
+        $this->messageBus = Mockery::mock(MessageBusInterface::class);
+
+        $this->dispatcher = new WooDecisionDispatcher(
+            $this->messageBus,
+        );
+    }
+
+    public function testDispatchRemoveInventoryAndDocumentsCommand(): void
+    {
+        $id = Uuid::v6();
+
+        $this->messageBus->expects('dispatch')->with(Mockery::on(
+            static function (RemoveInventoryCommand $command) use ($id) {
+                self::assertEquals($id, $command->getUuid());
+
+                return true;
+            },
+        ))->andReturns(new Envelope(new stdClass()));
+
+        $this->messageBus->expects('dispatch')->with(Mockery::on(
+            static function (RemoveDocumentsCommand $command) use ($id) {
+                self::assertEquals($id, $command->getUuid());
+
+                return true;
+            },
+        ))->andReturns(new Envelope(new stdClass()));
+
+        $this->dispatcher->dispatchRemoveInventoryAndDocumentsCommand($id);
+    }
+
+    public function testDispatchWithdrawAllDocumentsCommand(): void
+    {
+        $wooDecisionId = Uuid::v6();
+        $wooDecision = Mockery::mock(WooDecision::class);
+        $wooDecision->expects('getId')->andReturn($wooDecisionId);
+
+        $reason = DocumentWithdrawReason::INCORRECT_ATTACHMENT;
+        $explanation = 'oops';
+
+        $this->messageBus->expects('dispatch')->with(Mockery::on(
+            static function (WithDrawAllDocumentsCommand $command) use ($wooDecisionId, $reason, $explanation) {
+                self::assertEquals($wooDecisionId, $command->dossierId);
+                self::assertEquals($reason, $command->reason);
+                self::assertEquals($explanation, $command->explanation);
+
+                return true;
+            },
+        ))->andReturns(new Envelope(new stdClass()));
+
+        $this->dispatcher->dispatchWithdrawAllDocumentsCommand($wooDecision, $reason, $explanation);
+    }
+
+    public function testDispatchUpdateDecisionCommand(): void
+    {
+        $wooDecision = Mockery::mock(WooDecision::class);
+
+        $this->messageBus->expects('dispatch')->with(Mockery::on(
+            static function (UpdateDecisionCommand $command) use ($wooDecision) {
+                self::assertEquals($wooDecision, $command->dossier);
+
+                return true;
+            },
+        ))->andReturns(new Envelope(new stdClass()));
+
+        $this->dispatcher->dispatchUpdateDecisionCommand($wooDecision);
+    }
+
+    public function testDispatchGenerateInquiryInventoryCommand(): void
+    {
+        $id = Uuid::v6();
+
+        $this->messageBus->expects('dispatch')->with(Mockery::on(
+            static function (GenerateInquiryInventoryCommand $command) use ($id) {
+                self::assertEquals($id, $command->getUuid());
+
+                return true;
+            },
+        ))->andReturns(new Envelope(new stdClass()));
+
+        $this->dispatcher->dispatchGenerateInquiryInventoryCommand($id);
+    }
+
+    public function testDispatchUpdateInquiryLinksCommand(): void
+    {
+        $id = Uuid::v6();
+        $inquiryNumber = 'foo-123';
+        $docIdsToAdd = [Uuid::v6(), Uuid::v6()];
+        $docIdsToDelete = [Uuid::v6()];
+        $dossierIdsToAdd = [Uuid::v6()];
+
+        $this->messageBus->expects('dispatch')->with(Mockery::on(
+            static function (UpdateInquiryLinksCommand $command) use ($id, $inquiryNumber, $docIdsToAdd, $docIdsToDelete, $dossierIdsToAdd) {
+                self::assertEquals($id, $command->getOrganisationId());
+                self::assertEquals($inquiryNumber, $command->getInquiryNumber());
+                self::assertEquals($docIdsToAdd, $command->getDocIdsToAdd());
+                self::assertEquals($docIdsToDelete, $command->getDocIdsToDelete());
+                self::assertEquals($dossierIdsToAdd, $command->getDossierIdsToAdd());
+
+                return true;
+            },
+        ))->andReturns(new Envelope(new stdClass()));
+
+        $this->dispatcher->dispatchUpdateInquiryLinksCommand($id, $inquiryNumber, $docIdsToAdd, $docIdsToDelete, $dossierIdsToAdd);
+    }
+
+    public function testDispatchProcessUploadedDocumentsCommand(): void
+    {
+        $wooDecisionId = Uuid::v6();
+        $uploadEntityId = Uuid::v6();
+
+        $this->messageBus->expects('dispatch')->with(Mockery::on(
+            static function (ProcessUploadedDocumentsCommand $command) use ($wooDecisionId, $uploadEntityId) {
+                self::assertEquals($wooDecisionId, $command->wooDecisionId);
+                self::assertEquals($uploadEntityId, $command->uploadEntityId);
+
+                return true;
+            },
+        ))->andReturns(new Envelope(new stdClass()));
+
+        $this->dispatcher->dispatchProcessUploadedDocumentsCommand($wooDecisionId, $uploadEntityId);
+    }
+}

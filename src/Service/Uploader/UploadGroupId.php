@@ -1,0 +1,118 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Service\Uploader;
+
+use Shared\Domain\Upload\FileType\FileType;
+
+use function array_map;
+use function array_merge;
+use function array_unique;
+use function array_values;
+
+enum UploadGroupId: string
+{
+    case MAIN_DOCUMENTS = 'main-documents';
+    case ATTACHMENTS = 'attachments';
+    case WOO_DECISION_DOCUMENTS = 'woo-decision-documents';
+    case API_WOO_DECISION_DOCUMENTS = 'api-woo-decision-documents';
+    case DEPARTMENT = 'department';
+
+    public function isDepartment(): bool
+    {
+        return $this === self::DEPARTMENT;
+    }
+
+    /**
+     * @return list<FileType>
+     */
+    public function getFileTypes(): array
+    {
+        return match ($this) {
+            self::WOO_DECISION_DOCUMENTS => [
+                FileType::PDF,
+                FileType::XLS,
+                FileType::DOC,
+                FileType::PPT,
+                FileType::TXT,
+                FileType::ZIP,
+                FileType::AUDIO,
+                FileType::VIDEO,
+            ],
+            self::API_WOO_DECISION_DOCUMENTS => [
+                FileType::PDF,
+                FileType::XLS,
+                FileType::DOC,
+                FileType::PPT,
+                FileType::TXT,
+                FileType::AUDIO,
+                FileType::VIDEO,
+            ],
+            self::DEPARTMENT => [
+                FileType::VECTOR_IMAGE,
+            ],
+            default => [
+                FileType::PDF,
+                FileType::XLS,
+                FileType::DOC,
+                FileType::PPT,
+                FileType::TXT,
+            ],
+        };
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getExtensions(): array
+    {
+        $exts = [];
+        foreach ($this->getFileTypes() as $fileType) {
+            $exts = array_merge($exts, $fileType->getExtensions());
+        }
+
+        return array_values(array_unique($exts));
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getMimeTypes(): array
+    {
+        $mimeTypes = [];
+        foreach ($this->getFileTypes() as $fileType) {
+            $mimeTypes = array_merge($mimeTypes, $fileType->getMimeTypes());
+        }
+
+        return array_values(array_unique($mimeTypes));
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getFileTypeNames(): array
+    {
+        $names = [];
+        foreach ($this->getFileTypes() as $fileType) {
+            $names[] = $fileType->getTypeName();
+        }
+
+        return array_values(array_unique($names));
+    }
+
+    /**
+     * @return list<array{label:string,mimeTypes:list<string>,size:int}>
+     */
+    public function getFileLimits(): array
+    {
+        return array_map(
+            static fn (FileType $type): array => [
+                'label' => $type->getTypeName(),
+                'mimeTypes' => $type->getMimeTypes(),
+                'size' => $type->getMaxUploadSize(),
+            ],
+            $this->getFileTypes(),
+        );
+    }
+}

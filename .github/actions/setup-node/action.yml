@@ -1,0 +1,37 @@
+name: Setup node
+description: Compose action that sets up node
+
+inputs:
+  node-version:
+    description: The node version
+    default: "22"
+  github-token:
+    description: Add a Github Token which will be used for fetching node and npm packages
+  run-npm-build:
+    description: Run npm build script
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup node
+      uses: actions/setup-node@v6
+      id: setup-node
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+        registry-url: https://npm.pkg.github.com
+        token: ${{ inputs.github-token }}
+
+    - name: Enable corepack
+      shell: bash
+      run: corepack enable npm
+
+    - name: Install npm dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Run npm build
+      if: ${{ inputs.run-npm-build == 'true' }}
+      shell: bash
+      run: npm run build

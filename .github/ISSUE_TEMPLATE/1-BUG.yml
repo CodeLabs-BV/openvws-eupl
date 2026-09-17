@@ -1,0 +1,29 @@
+name: Bug
+description: Meld een bug.
+projects: ["minvws/30"]
+type: Bug
+body:
+  - type: textarea
+    attributes:
+      label: Reproductie stappen
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Geobserveerd gedrag
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Verwacht gedrag
+    validations:
+      required: true
+  - type: dropdown
+    id: branch
+    attributes:
+      label: Target branch
+      options:
+        - Main
+        - Release branch (vX.X.X)
+    validations:
+      required: true

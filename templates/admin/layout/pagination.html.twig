@@ -1,0 +1,62 @@
+{% macro pagination_anchor(pageNumber, currentPageNumber, query, pageParameterName, fragment) %}
+    {% set isActive = pageNumber == currentPageNumber %}
+    <a
+        {% if isActive %}aria-current="page"{% endif %}
+        class="bhr-btn-ghost-primary font-normal w-10 h-10 {{ isActive ? 'bg-bhr-gray-200 cursor-default text-black' : '' }}"
+        href="?{{ query|merge({(pageParameterName): pageNumber}) | url_encode }}{{ fragment }}"
+    >
+        <span class="sr-only">{{ 'global.page' | trans }}</span> {{ pageNumber }}
+    </a>
+{% endmacro %}
+
+{% if pageCount > 1 %}
+    {% set fragment = fragment|default("#resultaten") %}
+
+    <nav class="pt-6" aria-label="{{ 'global.pagination' | trans }}">
+        <ul class="flex justify-center relative items-center">
+            {% if previous is defined %}
+            <li class="absolute left-0">
+                <a class="bhr-btn-bordered-primary" href="?{{ query|merge({(pageParameterName): previous}) | url_encode }}{{ fragment }}" rel="prev">
+                    <twig:Admin:Button:Icon isLeft="{{ true }}" name="chevron-left" />
+                    {{ 'global.previous' | trans }} <span class="sr-only">{{ 'global.page' | trans | lower }}</span>
+                </a>
+            </li>
+            {% endif %}
+
+            {% if startPage > 1 %}
+                <li>{{ _self.pagination_anchor(1, current, query, pageParameterName, fragment) }}</li>
+                {% if startPage == 3 %}
+                    <li>{{ _self.pagination_anchor(2, current, query, pageParameterName, fragment) }}</li>
+                {% elseif startPage != 2 %}
+                    <li>&hellip;</li>
+                {% endif %}
+            {% endif %}
+
+            {% for pageNumber in pagesInRange %}
+                <li>
+                    {{ _self.pagination_anchor(pageNumber, current, query, pageParameterName, fragment) }}
+                </li>
+            {% endfor %}
+
+            {% if pageCount > endPage %}
+                {% if pageCount > (endPage + 1) %}
+                    {% if pageCount > (endPage + 2) %}
+                        <li>&hellip;</li>
+                    {% else %}
+                        <li>{{ _self.pagination_anchor(pageCount - 1, current, query, pageParameterName, fragment) }}</li>
+                    {% endif %}
+                {% endif %}
+                <li>{{ _self.pagination_anchor(pageCount, current, query, pageParameterName, fragment) }}</li>
+            {% endif %}
+
+            {% if next is defined %}
+            <li class="absolute right-0">
+                <a class="bhr-btn-bordered-primary" href="?{{ query|merge({(pageParameterName): next}) | url_encode }}{{ fragment }}" rel="next">
+                    {{ 'global.next' | trans }} <span class="sr-only">{{ 'global.page' | trans | lower }}</span>
+                    <twig:Admin:Button:Icon isRight="{{ true }}" name="chevron-right" />
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+{% endif %}

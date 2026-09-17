@@ -1,0 +1,120 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Domain\Publication\History;
+
+use Shared\Domain\Publication\Attachment\Event\AbstractAttachmentEvent;
+use Shared\Domain\Publication\Attachment\Event\AttachmentCreatedEvent;
+use Shared\Domain\Publication\Attachment\Event\AttachmentDeletedEvent;
+use Shared\Domain\Publication\Attachment\Event\AttachmentUpdatedEvent;
+use Shared\Domain\Publication\Attachment\Event\AttachmentWithdrawnEvent;
+use Shared\Domain\Publication\Dossier\AbstractDossier;
+use Shared\Domain\Publication\Dossier\DossierRepository;
+use Shared\Service\HistoryService;
+use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Contracts\Translation\TranslatorInterface;
+
+final readonly class AttachmentHistoryHandler
+{
+    public function __construct(
+        private HistoryService $historyService,
+        private DossierRepository $dossierRepository,
+        private TranslatorInterface $translator,
+    ) {
+    }
+
+    #[AsMessageHandler()]
+    public function handleCreate(AttachmentCreatedEvent $event): void
+    {
+        $dossier = $this->getDossier($event);
+
+        $this->historyService->addDossierEntry(
+            dossierId: $dossier->getId(),
+            key: 'attachment_created',
+            context: $this->getContext($event),
+            mode: $dossier->getStatus()->isPublished() ? HistoryService::MODE_BOTH : HistoryService::MODE_PRIVATE,
+        );
+    }
+
+    #[AsMessageHandler()]
+    public function handleUpdate(AttachmentUpdatedEvent $event): void
+    {
+        $dossier = $this->getDossier($event);
+        $context = $this->getContext($event);
+        $mode = $dossier->getStatus()->isPublished() ? HistoryService::MODE_BOTH : HistoryService::MODE_PRIVATE;
+
+        if ($event->metadataUpdated) {
+            $this->historyService->addDossierEntry(
+                dossierId: $event->dossierId,
+                key: 'attachment_updated',
+                context: $context,
+                mode: $mode,
+            );
+        }
+
+        if ($event->fileUpdated) {
+            $this->historyService->addDossierEntry(
+                dossierId: $event->dossierId,
+                key: 'attachment_replaced',
+                context: $context,
+                mode: $mode,
+            );
+        }
+    }
+
+    #[AsMessageHandler()]
+    public function handleDelete(AttachmentDeletedEvent $event): void
+    {
+        $dossier = $this->getDossier($event);
+
+        $this->historyService->addDossierEntry(
+            dossierId: $event->dossierId,
+            key: 'attachment_deleted',
+            context: $this->getContext($event),
+            mode: $dossier->getStatus()->isPublished() ? HistoryService::MODE_BOTH : HistoryService::MODE_PRIVATE,
+        );
+    }
+
+    #[AsMessageHandler()]
+    public function handleWithdraw(AttachmentWithdrawnEvent $event): void
+    {
+        $translatedReason = $event->reason->trans($this->translator);
+
+        $this->historyService->addDossierEntry(
+            dossierId: $event->dossierId,
+            key: 'attachment_withdrawn',
+            context: [
+                'reason' => $translatedReason,
+            ],
+            mode: HistoryService::MODE_PUBLIC,
+        );
+
+        $this->historyService->addDossierEntry(
+            dossierId: $event->dossierId,
+            key: 'attachment_withdrawn',
+            context: [
+                'reason' => $translatedReason,
+                'explanation' => $event->explanation,
+            ],
+            mode: HistoryService::MODE_PRIVATE,
+        );
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function getContext(AbstractAttachmentEvent $event): array
+    {
+        return [
+            'filename' => $event->fileName,
+            'filetype' => $event->fileType,
+            'filesize' => $event->fileSize,
+        ];
+    }
+
+    private function getDossier(AbstractAttachmentEvent|AttachmentWithdrawnEvent $event): AbstractDossier
+    {
+        return $this->dossierRepository->findOneByDossierId($event->dossierId);
+    }
+}

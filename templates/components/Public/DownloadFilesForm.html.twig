@@ -1,0 +1,19 @@
+<div class="mb-6">
+    <form class="sm:flex justify-between items-center" method="post" action="{{ action }}">
+        <div class="leading-none pt-6 sm:pt-0">
+            <a class="woo-btn-filled-primary" href="{{ searchUrl }}" data-e2e-name="search-through-documents">
+                {{ 'global.search_through' | trans }}
+
+                <twig:Public:Icon class="woo-btn__icon-right" name="magnifier" size="16" />
+            </a>
+        </div>
+
+        {% if canDownload %}
+        <button class="woo-a no-underline font-bold" data-e2e-name="download-documents-button" type="submit">
+            {{ 'public.documents.download_public_documents' | trans }}
+
+            <twig:Public:Icon class="ml-1" name="download" size="16" />
+        </button>
+        {% endif %}
+    </form>
+</div>

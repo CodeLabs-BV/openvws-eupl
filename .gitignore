@@ -1,0 +1,52 @@
+
+###> symfony/framework-bundle ###
+/.env.local
+/.env.local.php
+/.env.*.local
+/config/secrets/prod/prod.decrypt.private.php
+/config/reference.php
+/public/bundles/
+/var/
+/vendor/
+###< symfony/framework-bundle ###
+
+###> pentatrion/vite-bundle ###
+/node_modules/
+/public/build/
+###< pentatrion/vite-bundle ###
+
+###> friendsofphp/php-cs-fixer ###
+/.php-cs-fixer.php
+/.php-cs-fixer.cache
+###< friendsofphp/php-cs-fixer ###
+
+###> phpstan/phpstan ###
+phpstan.neon
+###< phpstan/phpstan ###
+
+###> phpunit/phpunit ###
+/phpunit.xml
+/.phpunit.cache/
+###< phpunit/phpunit ###
+
+/env
+/*.hidden
+
+/coverage
+/database
+
+/public/sitemap*.xml
+/public/documentatie/
+
+Taskfile.yml
+.task
+auth.json
+.npmrc.auth
+.phpstan.cache
+.phpcs-cache
+.phpmd.result-cache.php
+hashes.json
+lib/
+reports
+compose.override.yml
+__pycache__

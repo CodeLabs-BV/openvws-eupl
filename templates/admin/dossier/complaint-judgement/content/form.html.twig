@@ -1,0 +1,27 @@
+{{ form_start(form) }}
+    {{ form_row(form.summary) }}
+
+    <twig:Admin:Publication:ManageNoticeNotPublic
+        canDelete="{{ hasNoticeNotPublic }}"
+        endpoint="{{ '/balie/api/dossiers/' ~ dossier.id ~ '/notice-not-public' }}"
+        formField="{{ form.noticeNotPublic }}"
+        grounds="{{ grounds }}"
+        hasMainDocument="{{ dossier.mainDocument is not null }}"
+    />
+
+    <twig:Admin:Publication:ManageDocument
+        canDelete="{{ canDeleteDocument }}"
+        documentType="{{ 'admin.dossiers.complaint-judgement.document' | trans }}"
+        documentTypes="{{ documentTypes }}"
+        endpoint="{{ '/balie/api/dossiers/' ~ dossier.id ~ '/complaint-judgement-document' }}"
+        fileLimits="{{ documentFileLimits | default([])}}"
+        formField="{{ form.document }}"
+        grounds="{{ grounds }}"
+        hasNoticeNotPublic="{{ hasNoticeNotPublic }}"
+        helpText="{{ 'admin.dossiers.complaint-judgement.form.content.document_help' | trans }}"
+        languages="{{ documentLanguages }}"
+        title="{{ 'admin.dossiers.complaint-judgement.form.content.document_label' | trans }}"
+        dossierId="{{ dossier.id }}"
+    />
+
+{{ form_end(form) }}

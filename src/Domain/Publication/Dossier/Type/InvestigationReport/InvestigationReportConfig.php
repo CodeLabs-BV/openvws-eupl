@@ -1,0 +1,80 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Domain\Publication\Dossier\Type\InvestigationReport;
+
+use Shared\Domain\Publication\Dossier\Step\StepDefinition;
+use Shared\Domain\Publication\Dossier\Step\StepDefinitionInterface;
+use Shared\Domain\Publication\Dossier\Step\StepName;
+use Shared\Domain\Publication\Dossier\Type\DossierType;
+use Shared\Domain\Publication\Dossier\Type\DossierTypeConfigInterface;
+use Shared\Domain\Publication\Dossier\Workflow\DossierWorkflow;
+use Symfony\Component\DependencyInjection\Attribute\Target;
+use Symfony\Component\ExpressionLanguage\Expression;
+use Symfony\Component\Workflow\WorkflowInterface;
+
+/**
+ * @codeCoverageIgnore
+ */
+readonly class InvestigationReportConfig implements DossierTypeConfigInterface
+{
+    public function __construct(
+        #[Target(DossierWorkflow::INVESTIGATION_REPORT->value)]
+        private WorkflowInterface $investigationReportWorkflow,
+    ) {
+    }
+
+    public function getDossierType(): DossierType
+    {
+        return DossierType::INVESTIGATION_REPORT;
+    }
+
+    public function getSecurityExpression(): ?Expression
+    {
+        return null;
+    }
+
+    public function getStatusWorkflow(): WorkflowInterface
+    {
+        return $this->investigationReportWorkflow;
+    }
+
+    /**
+     * @codeCoverageIgnore
+     */
+    public function getEntityClass(): string
+    {
+        return InvestigationReport::class;
+    }
+
+    /**
+     * @return array<array-key, StepDefinitionInterface>
+     */
+    public function getSteps(): array
+    {
+        return [
+            StepDefinition::create($this, StepName::DETAILS),
+            StepDefinition::create($this, StepName::CONTENT),
+            StepDefinition::create($this, StepName::PUBLICATION),
+        ];
+    }
+
+    public function getCreateRouteName(): string
+    {
+        return 'app_admin_dossier_investigationreport_details_create';
+    }
+
+    public function getSubEntityClasses(): array
+    {
+        return [
+            InvestigationReportMainDocument::class,
+            InvestigationReportAttachment::class,
+        ];
+    }
+
+    public function getAttachmentStepName(): ?StepName
+    {
+        return StepName::CONTENT;
+    }
+}

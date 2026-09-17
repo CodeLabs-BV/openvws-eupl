@@ -1,0 +1,91 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Controller\Admin\Dossier\WooDecision;
+
+use Huluti\BreadcrumbsBundle\Model\Breadcrumbs;
+use Shared\Domain\Publication\Dossier\Step\StepActionHelper;
+use Shared\Domain\Publication\Dossier\Step\StepName;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecision;
+use Shared\Form\Dossier\WooDecision\PublishType;
+use Shared\Service\DossierService;
+use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
+
+class PublicationStepController extends AbstractController
+{
+    public function __construct(
+        private readonly DossierService $dossierService,
+        private readonly StepActionHelper $stepHelper,
+    ) {
+    }
+
+    #[Route(
+        path: '/balie/dossier/woodecision/publish/concept/{documentPrefix}/{dossierNumber}',
+        name: 'app_admin_dossier_woodecision_publication_concept',
+        methods: ['GET', 'POST'],
+    )]
+    #[IsGranted('AuthMatrix.dossier.create', subject: 'dossier')]
+    public function concept(
+        #[MapEntity(mapping: ['documentPrefix' => 'documentPrefix', 'dossierNumber' => 'dossierNumber'])] WooDecision $dossier,
+        Request $request,
+    ): Response {
+        $wizardStatus = $this->stepHelper->getWizardStatus($dossier, StepName::PUBLICATION);
+        if (! $wizardStatus->isCurrentStepAccessibleInConceptMode()) {
+            return $this->stepHelper->redirectToFirstOpenStep($wizardStatus);
+        }
+
+        $form = $this->createForm(PublishType::class, $dossier);
+        $form->handleRequest($request);
+        if ($form->isSubmitted() && $form->isValid()) {
+            $this->dossierService->validateCompletion($dossier);
+
+            return $this->stepHelper->redirectToPublicationConfirmation($dossier);
+        }
+
+        return $this->render('admin/dossier/woo-decision/publication/concept.html.twig', [
+            'dossier' => $dossier,
+            'workflowStatus' => $wizardStatus,
+            'form' => $form,
+        ]);
+    }
+
+    #[Route(
+        path: '/balie/dossier/woodecision/publish/edit/{documentPrefix}/{dossierNumber}',
+        name: 'app_admin_dossier_woodecision_publication_edit',
+        methods: ['GET', 'POST'],
+    )]
+    #[IsGranted('AuthMatrix.dossier.update', subject: 'dossier')]
+    public function edit(
+        #[MapEntity(mapping: ['documentPrefix' => 'documentPrefix', 'dossierNumber' => 'dossierNumber'])] WooDecision $dossier,
+        Request $request,
+        Breadcrumbs $breadcrumbs,
+    ): Response {
+        $wizardStatus = $this->stepHelper->getWizardStatus($dossier, StepName::PUBLICATION);
+        if (! $wizardStatus->isCurrentStepAccessibleInEditMode()) {
+            return $this->stepHelper->redirectToDossier($dossier);
+        }
+
+        $form = $this->createForm(PublishType::class, $dossier);
+        $form->handleRequest($request);
+        if ($form->isSubmitted() && $form->isValid()) {
+            $this->dossierService->validateCompletion($dossier);
+
+            return $this->stepHelper->redirectToPublicationConfirmation($dossier);
+        }
+
+        $this->stepHelper->addDossierToBreadcrumbs($breadcrumbs, $dossier, 'admin.dossiers.woo-decision.step.publication');
+
+        return $this->render('admin/dossier/woo-decision/publication/edit.html.twig', [
+            'breadcrumbs' => $breadcrumbs,
+            'dossier' => $dossier,
+            'workflowStatus' => $wizardStatus,
+            'form' => $form,
+        ]);
+    }
+}

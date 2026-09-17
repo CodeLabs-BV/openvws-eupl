@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Factory;
+
+use DateTimeImmutable;
+use Override;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Inquiry\InquiryInventory;
+use Zenstruck\Foundry\Persistence\PersistentObjectFactory;
+
+/**
+ * @extends PersistentObjectFactory<InquiryInventory>
+ */
+final class InquiryInventoryFactory extends PersistentObjectFactory
+{
+    public static function class(): string
+    {
+        return InquiryInventory::class;
+    }
+
+    /**
+     * @see https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#model-factories
+     *
+     * @return array<string,mixed>
+     */
+    protected function defaults(): array|callable
+    {
+        return [
+            'inquiry' => InquiryFactory::new(),
+            'fileInfo' => FileInfoFactory::new(),
+            'createdAt' => DateTimeImmutable::createFromMutable(self::faker()->dateTime()),
+            'updatedAt' => DateTimeImmutable::createFromMutable(self::faker()->dateTime()),
+        ];
+    }
+
+    /**
+     * @see https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#initialization
+     */
+    #[Override]
+    protected function initialize(): static
+    {
+        return $this;
+        // ->afterInstantiate(function(InquiryInventory $inquiryInventory): void {})
+    }
+}

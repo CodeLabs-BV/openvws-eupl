@@ -1,0 +1,178 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Service\Inventory;
+
+use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Service\Inventory\InventoryDataHelper;
+
+use function array_values;
+
+class InventoryDataHelperTest extends TestCase
+{
+    /**
+     * @param non-empty-string|array<array-key, non-empty-string> $separators
+     * @param array<array-key, string> $expectedResult
+     */
+    #[DataProvider('separateValuesProvider')]
+    public function testSeparateValues(?string $input, string|array $separators, array $expectedResult): void
+    {
+        self::assertEquals($expectedResult, array_values(InventoryDataHelper::separateValues($input, $separators)));
+    }
+
+    /**
+     * @return array<string, array{
+     *      input: string|null,
+     *      separators: non-empty-string|array<array-key, non-empty-string>,
+     *      expectedResult: array<array-key, string>
+     *  }>
+     */
+    public static function separateValuesProvider(): array
+    {
+        return [
+            'semicolon-separated' => [
+                'input' => 'test;123',
+                'separators' => ';',
+                'expectedResult' => ['test', '123'],
+            ],
+            'semicolon-separated-with-whitespace' => [
+                'input' => ' test ;   123;x   ',
+                'separators' => ';',
+                'expectedResult' => ['test', '123', 'x'],
+            ],
+            'pipe-separated' => [
+                'input' => ' test|123; x   ',
+                'separators' => '|',
+                'expectedResult' => ['test', '123; x'],
+            ],
+            'empty-values-and-adjacent-separators-are-ignored' => [
+                'input' => ' test|| | 123',
+                'separators' => '|',
+                'expectedResult' => ['test', '123'],
+            ],
+            'multiple-separators' => [
+                'input' => ' test,123;456',
+                'separators' => [';', ','],
+                'expectedResult' => ['test', '123', '456'],
+            ],
+            'multiple-separators-and-whitespace' => [
+                'input' => ' test  ,  123  ;  456,;, ',
+                'separators' => [';', ','],
+                'expectedResult' => ['test', '123', '456'],
+            ],
+            'empty-input' => [
+                'input' => '   ',
+                'separators' => [';', ','],
+                'expectedResult' => [],
+            ],
+            'null-input' => [
+                'input' => null,
+                'separators' => [';', ','],
+                'expectedResult' => [],
+            ],
+        ];
+    }
+
+    #[DataProvider('toDateTimeImmutableProvider')]
+    public function testToDateTimeImmutable(string $input, ?DateTimeImmutable $expectedResult): void
+    {
+        if ($expectedResult === null) {
+            $this->expectException(RuntimeException::class);
+        }
+
+        self::assertEquals($expectedResult, InventoryDataHelper::toDateTimeImmutable($input));
+    }
+
+    /**
+     * @return array<string, array{input:string, expectedResult:DateTimeImmutable|null}>
+     */
+    public static function toDateTimeImmutableProvider(): array
+    {
+        $sixthOfMay2021 = DateTimeImmutable::createFromFormat('!Y-m-d', '2021-05-06');
+        self::assertInstanceOf(DateTimeImmutable::class, $sixthOfMay2021);
+
+        $sixthOfMay2021ElevenPastEight = DateTimeImmutable::createFromFormat('Y-m-d H:i', '2021-05-06 08:11');
+        self::assertInstanceOf(DateTimeImmutable::class, $sixthOfMay2021ElevenPastEight);
+
+        return [
+            'empty-input-throws-exception' => [
+                'input' => '',
+                'expectedResult' => null,
+            ],
+            'old-inventory-format' => [
+                'input' => '10/9/2020 1:34 PM UTC',
+                'expectedResult' => new DateTimeImmutable('2020-10-09 13:34'),
+            ],
+            'YYYY-MM-DD' => [
+                'input' => '2021-05-06',
+                'expectedResult' => $sixthOfMay2021,
+            ],
+            'DD-MM-YYYY' => [
+                'input' => '06-05-2021',
+                'expectedResult' => $sixthOfMay2021,
+            ],
+            'YYYY/MM/DD' => [
+                'input' => '2021/05/06',
+                'expectedResult' => $sixthOfMay2021,
+            ],
+            'DD/MM/YYYY' => [
+                'input' => '06/05/2021',
+                'expectedResult' => $sixthOfMay2021,
+            ],
+            'DD/MM/YYYY h:m' => [
+                'input' => '06/05/2021 08:11',
+                'expectedResult' => $sixthOfMay2021ElevenPastEight,
+            ],
+            'invalid-input-throws-exception' => [
+                'input' => 'test-1231 foo bar',
+                'expectedResult' => null,
+            ],
+            'unsupported-format-throws-exception' => [
+                'input' => '06/05/2021 23:11 UTC',
+                'expectedResult' => null,
+            ],
+        ];
+    }
+
+    /**
+     * @param array<array-key, array{input: string, expectedResult: array<array-key, string>}> $expectedResult
+     */
+    #[DataProvider('getGroundsProvider')]
+    public function testGetGrounds(string $input, array $expectedResult): void
+    {
+        self::assertEquals($expectedResult, InventoryDataHelper::getGrounds($input));
+    }
+
+    /**
+     * @return array<array-key, array{input: string, expectedResult: array<array-key, string>}>
+     */
+    public static function getGroundsProvider(): array
+    {
+        return [
+            'single-value-without-normalization-is-returned-as-is' => [
+                'input' => 'foo',
+                'expectedResult' => ['foo'],
+            ],
+            'single-value-with-normalization' => [
+                'input' => '5.1.2.i',
+                'expectedResult' => ['5.1.2i'],
+            ],
+            'two-values-with-and-without-normalization' => [
+                'input' => 'foo;5.1.2.i',
+                'expectedResult' => ['foo', '5.1.2i'],
+            ],
+            'two-values-with-and-without-normalization-including-whitespace' => [
+                'input' => '  foo ;   5.1.2.i  ',
+                'expectedResult' => ['foo', '5.1.2i'],
+            ],
+            'empty-string' => [
+                'input' => '',
+                'expectedResult' => [],
+            ],
+        ];
+    }
+}

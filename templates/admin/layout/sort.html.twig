@@ -1,0 +1,23 @@
+{% set sorted = sorted ?? false %}
+
+{# "direction" indicates the *next* sort direction (applied on click of the target anchor), not the current one #}
+{% set direction = direction ?? 'desc' %}
+{% set nextDirection = direction %}
+{% set currentDirection = sorted ? (direction == 'asc' ? 'desc' : 'asc') : 'none' %}
+
+{% set ariaSortValue = currentDirection == 'none' ? 'none' : (currentDirection == 'asc' ? 'ascending' : 'descending' ) %}
+{% set translatedNextDirection = nextDirection == 'asc' ? 'global.sort.direction.sort_asc' | trans : 'global.sort.direction.sort_desc' | trans %}
+
+<th aria-sort="{{ ariaSortValue }}" class="{{ options.thClassName|default('') }}" scope="col">
+    <a class="bhr-fill-cell whitespace-nowrap hover-focus:bg-white {{ sortClassName|default('')|trim }}" href="{{ options.href }}{{ options.fragment|default('') }}">
+        <span
+            class="sr-only js-sort-next-direction"
+            data-text-asc="{{ 'global.sort.direction.sort_asc' | trans }}"
+            data-text-desc="{{ 'global.sort.direction.sort_desc' | trans }}"
+        >{{ translatedNextDirection }}</span><span class="sr-only">:</span> {{ title }}
+
+        <twig:Admin:Icon class="js-sort-icon js-sort-icon-none {{ ariaSortValue == 'none' ? '' : 'hidden' }}" name="sort" />
+        <twig:Admin:Icon class="js-sort-icon js-sort-icon-ascending {{ ariaSortValue == 'ascending' ? '' : 'hidden' }}" name="sort-up" />
+        <twig:Admin:Icon class="js-sort-icon js-sort-icon-descending {{ ariaSortValue == 'descending' ? '' : 'hidden' }}" name="sort-down" />
+    </a>
+</th>

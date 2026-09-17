@@ -1,0 +1,51 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Integration\Service\Storage\Streams;
+
+use function array_key_exists;
+use function sprintf;
+use function stream_wrapper_register;
+use function stream_wrapper_unregister;
+
+/**
+ * @see https://www.php.net/manual/en/class.streamwrapper.php
+ */
+abstract class StreamWrapper
+{
+    /** @var resource */
+    public $context;
+
+    /**
+     * @var array<class-string<StreamWrapper>,true>
+     */
+    protected static array $registered = [];
+
+    abstract public static function getName(): string;
+
+    public static function register(): void
+    {
+        if (array_key_exists(static::class, static::$registered)) {
+            return;
+        }
+
+        stream_wrapper_register(static::getName(), static::class);
+        static::$registered[static::class] = true;
+    }
+
+    public static function unregister(): void
+    {
+        if (! array_key_exists(static::class, static::$registered)) {
+            return;
+        }
+
+        stream_wrapper_unregister(static::getName());
+        unset(static::$registered[static::class]);
+    }
+
+    public static function getPath(string $path): string
+    {
+        return sprintf('%s://%s', static::getName(), $path);
+    }
+}

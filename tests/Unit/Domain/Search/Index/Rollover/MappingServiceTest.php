@@ -1,0 +1,62 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Domain\Search\Index\Rollover;
+
+use RuntimeException;
+use Shared\Domain\Search\Index\Rollover\MappingService;
+use Shared\Tests\Unit\UnitTestCase;
+
+class MappingServiceTest extends UnitTestCase
+{
+    private MappingService $mappingService;
+
+    protected function setUp(): void
+    {
+        $this->mappingService = new MappingService(__DIR__);
+
+        parent::setUp();
+    }
+
+    public function testGetMapping(): void
+    {
+        $this->assertMatchesJsonSnapshot($this->mappingService->getMapping(1));
+    }
+
+    public function testGetMappingThrowsExceptionForNonExistingVersion(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->mappingService->getMapping(999);
+    }
+
+    public function testGetMappingThrowsExceptionForInvalidJson(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->mappingService->getMapping(2);
+    }
+
+    public function testGetSettings(): void
+    {
+        $this->assertMatchesJsonSnapshot($this->mappingService->getSettings());
+    }
+
+    public function testGetLatestMappingVersion(): void
+    {
+        $this->assertEquals(3, $this->mappingService->getLatestMappingVersion());
+    }
+
+    public function testGetLatestMappingVersionWithNoMappings(): void
+    {
+        $mappingService = new MappingService('non-existing');
+        $this->assertEquals(-1, $mappingService->getLatestMappingVersion());
+    }
+
+    public function testIsValidMappingVersion(): void
+    {
+        $this->assertTrue($this->mappingService->isValidMappingVersion(1));
+        $this->assertTrue($this->mappingService->isValidMappingVersion(2));
+        $this->assertTrue($this->mappingService->isValidMappingVersion(3));
+        $this->assertFalse($this->mappingService->isValidMappingVersion(4));
+    }
+}

@@ -1,0 +1,109 @@
+{#
+    document_ground displays a ground with a possible link pointing to more information.
+
+    ground: a list of documents to display
+#}
+{% macro document_ground(ground) %}
+    {% if get_citation_type(ground) == constant('Shared\\Domain\\Publication\\Citation::TYPE_WOO') %}
+        <a class="woo-a" href="https://wetten.overheid.nl/BWBR0045754/#Hoofdstuk5">{{ ground }} {{ ground|classification }}</a>
+    {% elseif get_citation_type(ground) == constant('Shared\\Domain\\Publication\\Citation::TYPE_WOB') %}
+        <a class="woo-a" href="https://wetten.overheid.nl/BWBR0005252/#HoofdstukV">{{ ground }} {{ ground|classification }}</a>
+    {% else %}
+        {{ ground }}
+    {% endif %}
+{% endmacro %}
+
+{#
+    history_section displays a section with a title and a table of history
+
+    history: a list of history to display
+    titleTranslationKey: the translation key of the title
+#}
+{% macro history_section(history, titleTranslationKey) %}
+    {% set entries = history | filter(entry => history_trans(entry, "public") is not empty) %}
+    {% set firstSetItemCount = 5 %}
+    {% set setOne = entries[:firstSetItemCount] %}
+    {% set setTwo = entries[firstSetItemCount:] %}
+    {% if setOne | length > 0 %}
+        <div class="mt-16">
+            <h2 class="woo-h2 woo-h2-spacing">{{ titleTranslationKey | trans }}</h2>
+
+            {{ _self.history_table(setOne, titleTranslationKey, 1) }}
+
+            {% if setTwo | length > 0 %}
+                {% set id = 'history-table-' ~ random() %}
+                <div class="js:hidden" id="{{ id }}">
+                    {{ _self.history_table(setTwo, titleTranslationKey, firstSetItemCount + 1) }}
+                </div>
+
+                <button class="js-collapsible-toggle font-bold py-4 text-woo-dark-blue-600 w-full text-center no-js:hidden border-b border-woo-gray-300" aria-controls="{{ id }}" aria-expanded="false" data-e2e-name="show-full-history">
+                    <span class="js-is-expanded hidden">{{ 'public.global.show_less_history' | trans }} <twig:Public:Icon name="chevron-up" /></span>
+                    <span class="js-is-collapsed">{{ 'public.global.show_full_history' | trans }} <twig:Public:Icon name="chevron-down" /></span>
+                </button>
+            {% endif %}
+        </div>
+    {% endif %}
+{% endmacro %}
+
+{% macro history_table(entries, titleTranslationKey, rowStartNumber) %}
+    <div class="woo-responsive-table" data-e2e-name="{{ rowStartNumber is same as(1) ? 'document-history' : 'document-history-follow-up' }}">
+        <table class="woo-table">
+            <caption class="sr-only">{{ titleTranslationKey | trans }} ({{ 'global.row' | trans | lower }} {{ rowStartNumber }} - {{ rowStartNumber + (entries | length) - 1}})</caption>
+            <thead class="{{ rowStartNumber is same as(1) ? '' : 'sr-only' }}">
+                <tr>
+                    <th scope="col">{{ 'global.date' | trans() }}</th>
+                    <th class="text-right!" scope="col">{{ "global.action" | trans() }}</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for entry in entries %}
+                <tr>
+                    <td class="w-64 min-w-64 woo-table-cell-light" data-e2e-name="document-history-date">{{ entry.createdDt | format_datetime(pattern="d LLLL y H:mm") }}</td>
+                    <td class="min-w-64 text-right" data-e2e-name="document-history-action">
+                        {{ history_trans(entry, "public") }}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endmacro %}
+
+{% macro document_refers_to(documents) %}
+    {% for document in documents %}
+        {% if loop.last and loop.index > 1 %}{{ "global.and" | trans }}{% elseif not loop.first %}, {% endif %} {{ _self.document_url(document) }}
+    {% endfor %}
+    {{
+        "public.documents.refers_to" | trans({
+            "{has_or_have}": "public.global.has_or_have" | trans({ 'count': documents | length })
+        })
+    }}
+{% endmacro %}
+
+{% macro document_url(document) %}
+    {% set documentNumber = document.documentNumber.toString() %}
+    <a class="woo-a" href="{{ path('app_document_detail', { documentPrefix: document.dossiers.first.documentPrefix, dossierNumber: document.dossiers.first.dossierNumber, documentNumber: documentNumber }) }}">{{ document.fileInfo.name }}</a>
+{% endmacro %}
+
+{% macro withdrawn_and_suspended_count(withdrawnCount, suspendedCount) %}
+    {% if withdrawnCount > 0 or suspendedCount > 0 %}
+        {% set withdrawnText = 'public.inquiry.documents.of_which_withdrawn' | trans({ count: withdrawnCount }) %}
+        {% set suspendedText = 'public.inquiry.documents.of_which_suspended' | trans({ count: suspendedCount }) %}
+        <div class="text-woo-gray-700 pt-1">
+            {% if withdrawnCount > 0 and suspendedCount > 0 %}
+                <ul>
+                    <li>
+                        {{ withdrawnText }}
+                    </li>
+                    <li>
+                        {{ suspendedText }}
+                    </li>
+                </ul>
+            {% elseif withdrawnCount > 0 %}
+                {{ withdrawnText }}
+            {% elseif suspendedCount > 0 %}
+                {{ suspendedText }}
+            {% endif %}
+        </div>
+    {% endif %}
+{% endmacro %}

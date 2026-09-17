@@ -1,0 +1,4 @@
+{
+--suite E2E Tests.Sequential
+}
+#WAIT

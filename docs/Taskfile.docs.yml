@@ -1,0 +1,115 @@
+# https://taskfile.dev
+version: '3.50.0'
+
+vars:
+  # See tags for latest version: https://hub.docker.com/r/davidanson/markdownlint-cli2/tags
+  MARKDOWNLINT_VERSION: v0.22.0
+  TENANT: '{{ .TENANT | default "minvws" }}'
+
+tasks:
+  lint:
+    desc: Lint documentation
+    run: once
+    cmds:
+      - docker run --rm
+        --volume "{{.BASE_PATH}}":/workdir
+        davidanson/markdownlint-cli2:{{ .MARKDOWNLINT_VERSION }}
+        {{ .SUB_CMD }} {{ .CLI_ARGS }}
+    requires:
+      vars: [ BASE_PATH ]
+
+  lint:fix:
+    desc: Auto fix lint errors in documentation
+    run: once
+    cmds:
+      - task: lint
+        vars: { SUB_CMD: --fix }
+
+  sphinx:shell:
+    desc: Start a shell in the sphinx container
+    cmds:
+      - task: :dc:run:sphinx
+        vars:
+          SUB_CMD: bash
+
+  requirements:update:
+    aliases: [ deps:update ]
+    desc: Update the Python dependencies in docs/requirements.txt to their latest versions
+    vars:
+      FIXUID:
+        sh: echo ${FIXUID:-$(id -u)}
+      FIXGID:
+        sh: echo ${FIXGID:-$(id -g)}
+    cmds:
+      - task: :dc
+        vars:
+          SUB_CMD: >-
+            run --rm --user root sphinx bash -c
+            'set -e;
+             pip install --quiet pur;
+             pur --requirement requirements.txt;
+             chown {{ .FIXUID }}:{{ .FIXGID }} requirements.txt'
+
+  build:
+    desc: Build the documentation
+    vars:
+      TENANT: '{{ .TENANT | default "minvws" }}'
+    cmds:
+      - task: build:ci
+        vars:
+          TENANT: '{{ .TENANT }}'
+      - mkdir -p "{{.BASE_PATH}}/public/documentatie/{{ .TENANT }}"
+      - cp -r "{{.BASE_PATH}}/docs/_build/{{ .TENANT }}/html/." "{{.BASE_PATH}}/public/documentatie/{{ .TENANT }}"
+
+  build:all:
+    desc: Build the documentation for all tenants
+    cmds:
+      - task: build
+        vars:
+          TENANT: '{{ .ITEM }}'
+        for: { var: LOCAL_TENANTS }
+
+  build:ci:
+    desc: Build the documentation in CI
+    cmds:
+      - task: do:build:cleanup
+        vars: { TENANT: '{{ .TENANT }}' }
+      - task: :d:create-cache-volumes
+      - task: do:sphinx-build
+        vars:
+          TENANT: '{{ .TENANT }}'
+    requires:
+      vars:
+        - name: TENANT
+          enum:
+            ref: .ALL_TENANTS
+
+  build:ci:all:
+    desc: Build the documentation for all tenants in CI
+    cmds:
+      - task: build:ci
+        vars: { TENANT: '{{ .ITEM }}' }
+        for: { var: ALL_TENANTS }
+
+  do:build:cleanup:
+    desc: Remove the generated sphinx files
+    internal: true
+    cmds:
+      - rm -rf "{{ .BASE_PATH }}/public/documentatie/{{ .TENANT }}"
+      - rm -rf "{{ .BASE_PATH }}/docs/_build/{{ .TENANT }}"
+    requires:
+      vars:
+        - name: TENANT
+
+  do:sphinx-build:
+    desc: Run the sphinx-build tool
+    internal: true
+    cmds:
+      - task: :dc
+        vars:
+          SUB_CMD: run --rm -e SPHINX_TENANT={{ .TENANT }} sphinx sphinx-build -M html gebruikershandleiding _build/{{ .TENANT }} --fail-on-warning {{ .CLI_ARGS }}
+    requires:
+      vars:
+        - name: TENANT
+          enum:
+            ref: .ALL_TENANTS

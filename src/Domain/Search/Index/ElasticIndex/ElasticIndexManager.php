@@ -1,0 +1,230 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Domain\Search\Index\ElasticIndex;
+
+use Elastic\Elasticsearch\Response\Elasticsearch;
+use Exception;
+use Shared\Domain\Search\Index\ElasticConfig;
+use Shared\Domain\Search\Index\Rollover\MappingService;
+use Shared\Service\Elastic\ElasticClientInterface;
+
+use function array_keys;
+use function is_array;
+use function is_null;
+use function is_scalar;
+use function strval;
+use function usort;
+
+/**
+ * Creates and manages Elasticsearch indices and mappings.
+ */
+readonly class ElasticIndexManager
+{
+    public function __construct(
+        private ElasticClientInterface $elastic,
+        private MappingService $mappingService,
+        private ElasticConfig $elasticConfig,
+    ) {
+    }
+
+    /**
+     * Creates a new index with the given mapping version (as found in config/elastic/mapping-vXX.json).
+     */
+    public function create(string $indexName, int $version): void
+    {
+        // Create and close so we can set settings and mappings
+        $this->elastic->indices()->create(['index' => $indexName]);
+        $this->elastic->indices()->close(['index' => $indexName]);
+
+        $settings = $this->mappingService->getSettings();
+        $this->elastic->indices()->putSettings([
+            'index' => $indexName,
+            'body' => $settings,
+        ]);
+
+        $mapping = $this->mappingService->getMapping($version);
+        $this->elastic->indices()->putMapping([
+            'index' => $indexName,
+            'body' => $mapping,
+        ]);
+
+        // Open the index again for usage
+        $this->elastic->indices()->open(['index' => $indexName]);
+    }
+
+    public function createLatestWithAliases(string $indexName): void
+    {
+        $this->create($indexName, $this->mappingService->getLatestMappingVersion());
+        $this->switch($this->elasticConfig->readIndex, '*', $indexName);
+        $this->switch($this->elasticConfig->writeIndex, '*', $indexName);
+    }
+
+    /**
+     * Deletes given index.
+     */
+    public function delete(string $indexName): void
+    {
+        $this->elastic->indices()->delete(['index' => $indexName]);
+    }
+
+    /**
+     * Creates an alias for the given index. When $single is true, only one index can have the alias at a time.
+     */
+    public function alias(string $indexName, string $aliasName, bool $single = true): void
+    {
+        if ($single) {
+            try {
+                $this->elastic->indices()->deleteAlias(['index' => '*', 'name' => $aliasName]);
+            } catch (Exception) {
+                // Ignore
+            }
+        }
+
+        $this->elastic->indices()->putAlias(['index' => $indexName, 'name' => $aliasName]);
+    }
+
+    /**
+     * Switch the given alias from $srcIndex to $dstIndex atomically.
+     */
+    public function switch(string $aliasName, string $srcIndex, string $dstIndex): void
+    {
+        $this->elastic->indices()->updateAliases([
+            'body' => [
+                'actions' => [
+                    ['remove' => ['index' => $srcIndex, 'alias' => $aliasName]],
+                    ['add' => ['index' => $dstIndex, 'alias' => $aliasName]],
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<array-key, mixed>
+     */
+    public function listAlias(): array
+    {
+        /** @var Elasticsearch $response */
+        $response = $this->elastic->indices()->getAlias(['index' => '_all']);
+
+        return $response->asArray();
+    }
+
+    /**
+     * Returns true when the given index exists.
+     */
+    public function exists(string $indexName): bool
+    {
+        /** @var Elasticsearch $response */
+        $response = $this->elastic->indices()->exists(['index' => $indexName]);
+
+        return $response->asBool();
+    }
+
+    /**
+     * @return array<array-key, ElasticIndexDetails>
+     */
+    public function list(): array
+    {
+        $indices = $this->find();
+
+        // ES returns indices in a random order for each request, so manually order them for a consistent list
+        usort(
+            $indices,
+            static fn (ElasticIndexDetails $index1, ElasticIndexDetails $index2) => $index2->name <=> $index1->name,
+        );
+
+        return $indices;
+    }
+
+    /**
+     * @return array<array-key, ElasticIndexDetails>
+     */
+    public function find(?string $name = null): array
+    {
+        $aliases = $this->listAlias();
+
+        $params = [
+            'format' => 'json',
+        ];
+        if (! is_null($name)) {
+            $params['index'] = $name;
+        }
+
+        /** @var Elasticsearch $indicesResponse */
+        $indicesResponse = $this->elastic->cat()->indices($params);
+
+        /** @var Elasticsearch $mappingResponse */
+        $mappingResponse = $this->elastic->indices()->getMapping();
+        $mappingData = $mappingResponse->asArray();
+
+        /**
+         * @var array<array-key,array{index:string,health:string,status:string,'docs.count':?string,'store.size':?string}> $asArray
+         */
+        $asArray = $indicesResponse->asArray();
+
+        $indices = [];
+        foreach ($asArray as $index) {
+            $indices[] = new ElasticIndexDetails(
+                name: $index['index'],
+                health: $index['health'],
+                status: $index['status'],
+                docsCount: $index['docs.count'] ?? '??',
+                storeSize: $index['store.size'] ?? '??',
+                mappingVersion: $this->getMappingVersion($mappingData, $index['index']),
+                aliases: $this->getAliasNames($aliases, $index['index']),
+            );
+        }
+
+        return $indices;
+    }
+
+    /**
+     * @param array<array-key, mixed> $aliases
+     *
+     * @return array<array-key, int|string>
+     */
+    private function getAliasNames(array $aliases, string $indexName): array
+    {
+        $index = $aliases[$indexName] ?? null;
+        if (! is_array($index)) {
+            return [];
+        }
+
+        $namedAliases = $index['aliases'] ?? null;
+        if (! is_array($namedAliases)) {
+            return [];
+        }
+
+        return array_keys($namedAliases);
+    }
+
+    /**
+     * @param array<array-key, mixed> $mappingData
+     */
+    private function getMappingVersion(array $mappingData, string $indexName): string
+    {
+        $index = $mappingData[$indexName] ?? null;
+        if (! is_array($index)) {
+            return 'unknown';
+        }
+
+        $mappings = $index['mappings'] ?? null;
+        if (! is_array($mappings)) {
+            return 'unknown';
+        }
+
+        $meta = $mappings['_meta'] ?? null;
+        if (! is_array($meta)) {
+            return 'unknown';
+        }
+
+        $version = $meta['version'] ?? null;
+        if (! is_scalar($version)) {
+            return 'unknown';
+        }
+
+        return strval($version);
+    }
+}

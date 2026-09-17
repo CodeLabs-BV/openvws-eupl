@@ -1,0 +1,1126 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Integration\Domain\Publication\Dossier\Type\WooDecision\Document;
+
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\QueryBuilder;
+use Shared\Domain\Publication\Dossier\DossierStatus;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Document\Document;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Document\DocumentRepository;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Document\DocumentWithdrawReason;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Judgement;
+use Shared\Tests\Factory\DocumentFactory;
+use Shared\Tests\Factory\FileInfoFactory;
+use Shared\Tests\Factory\InquiryFactory;
+use Shared\Tests\Factory\OrganisationFactory;
+use Shared\Tests\Factory\Publication\Dossier\Type\WooDecision\WooDecisionFactory;
+use Shared\Tests\Integration\SharedWebTestCase;
+use Shared\Tests\Story\WooIndexWooDecisionStory;
+use Shared\ValueObject\DocumentId;
+use Shared\ValueObject\DocumentNumber;
+use Shared\ValueObject\ExternalId;
+use Shared\ValueObject\PlainDate;
+use Shared\ValueObject\PublicationContext;
+use Symfony\Component\Uid\Uuid;
+use Zenstruck\Foundry\Attribute\WithStory;
+
+use function array_map;
+use function iterator_to_array;
+use function strtoupper;
+use function Zenstruck\Foundry\Persistence\save;
+
+final class DocumentRepositoryTest extends SharedWebTestCase
+{
+    private DocumentRepository $documentRepository;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->documentRepository = self::fromContainer(DocumentRepository::class);
+    }
+
+    public function testSaveAndRemove(): void
+    {
+        $document = new Document();
+        $document->setDocumentNumber(DocumentNumber::fromString('abc123'));
+        $document->setDocumentId(DocumentId::create('abc123'));
+
+        $this->documentRepository->save($document, true);
+        $result = $this->documentRepository->find($document->getId());
+        self::assertEquals($document, $result);
+
+        $this->documentRepository->remove($document, true);
+        self::assertNull(
+            $this->documentRepository->find($document->getId()),
+        );
+    }
+
+    public function testFindByFamilyId(): void
+    {
+        $organisation = OrganisationFactory::createOne();
+
+        $dossierA = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::PUBLISHED]);
+        $dossierB = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::PUBLISHED]);
+        $dossierC = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::CONCEPT]);
+
+        DocumentFactory::createOne([
+            'documentNumber' => $documentNumberA = 'FOO-123',
+            'dossiers' => [$dossierA],
+            'familyId' => 123,
+        ]);
+        DocumentFactory::createOne([
+            'documentNumber' => $documentNumberB = 'FOO-456',
+            'dossiers' => [$dossierA],
+            'familyId' => 456,
+        ]);
+        DocumentFactory::createOne([
+            'documentNumber' => 'FOO-789',
+            'dossiers' => [$dossierB],
+            'familyId' => 123,
+        ]);
+        DocumentFactory::createOne([
+            'documentNumber' => 'FOO-999',
+            'dossiers' => [$dossierC],
+            'familyId' => 123,
+        ]);
+
+        $result = $this->documentRepository->findByFamilyId(
+            $dossierA,
+            123,
+        );
+        self::assertCount(1, $result);
+        self::assertSame($documentNumberA, $result[0]->getdocumentNumber()->toString());
+
+        $result = $this->documentRepository->findByFamilyId(
+            $dossierA,
+            456,
+        );
+        self::assertCount(1, $result);
+        self::assertSame($documentNumberB, $result[0]->getdocumentNumber()->toString());
+
+        $result = $this->documentRepository->findByFamilyId(
+            $dossierC,
+            123,
+        );
+        self::assertCount(0, $result);
+    }
+
+    public function testFindByThreadId(): void
+    {
+        $organisation = OrganisationFactory::createOne();
+
+        $dossierA = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::PUBLISHED]);
+        $dossierB = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::PUBLISHED]);
+        $dossierC = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::CONCEPT]);
+
+        DocumentFactory::createOne([
+            'documentNumber' => $documentNumberA = 'FOO-123',
+            'dossiers' => [$dossierA],
+            'threadId' => 123,
+        ]);
+        DocumentFactory::createOne([
+            'documentNumber' => $documentNumberB = 'FOO-456',
+            'dossiers' => [$dossierA],
+            'threadId' => 456,
+        ]);
+        DocumentFactory::createOne([
+            'documentNumber' => 'FOO-789',
+            'dossiers' => [$dossierB],
+            'threadId' => 123,
+        ]);
+        DocumentFactory::createOne([
+            'documentNumber' => 'FOO-999',
+            'dossiers' => [$dossierC],
+            'threadId' => 123,
+        ]);
+
+        $result = $this->documentRepository->findByThreadId(
+            $dossierA,
+            123,
+        );
+        self::assertCount(1, $result);
+        self::assertSame($documentNumberA, $result[0]->getdocumentNumber()->toString());
+
+        $result = $this->documentRepository->findByThreadId(
+            $dossierA,
+            456,
+        );
+        self::assertCount(1, $result);
+        self::assertSame($documentNumberB, $result[0]->getdocumentNumber()->toString());
+
+        $result = $this->documentRepository->findByThreadId(
+            $dossierC,
+            123,
+        );
+        self::assertCount(0, $result);
+    }
+
+    public function testPagecount(): void
+    {
+        DocumentFactory::createOne([
+            'documentNumber' => 'FOO-123',
+            'fileInfo' => FileInfoFactory::createone([
+                'pageCount' => 100,
+            ]),
+        ]);
+        DocumentFactory::createOne([
+            'documentNumber' => 'FOO-456',
+            'fileInfo' => FileInfoFactory::createone([
+                'pageCount' => 100,
+            ]),
+        ]);
+
+        self::assertEquals(200, $this->documentRepository->pagecount());
+    }
+
+    public function testGetRelatedDocumentsByThread(): void
+    {
+        $organisation = OrganisationFactory::createOne();
+
+        $dossierA = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::PUBLISHED]);
+        $dossierB = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::PUBLISHED]);
+
+        $documentA = DocumentFactory::createOne([
+            'documentNumber' => 'FOO-123',
+            'dossiers' => [$dossierA],
+            'threadId' => 123,
+        ]);
+        DocumentFactory::createOne([
+            'documentNumber' => $documentNumberB = 'FOO-456',
+            'dossiers' => [$dossierA],
+            'threadId' => 123,
+        ]);
+        DocumentFactory::createOne([
+            'documentNumber' => 'FOO-789',
+            'dossiers' => [$dossierA],
+            'threadId' => 456,
+        ]);
+        DocumentFactory::createOne([
+            'documentNumber' => 'FOO-999',
+            'dossiers' => [$dossierB],
+            'threadId' => 123,
+        ]);
+
+        /**
+         * @var QueryBuilder $queryBuilder
+         */
+        $queryBuilder = $this->documentRepository->getRelatedDocumentsByThread(
+            $dossierA,
+            $documentA,
+        );
+
+        /**
+         * @var array<array-key, Document> $result
+         */
+        $result = $queryBuilder->getQuery()->getResult();
+
+        self::assertCount(1, $result);
+        self::assertSame($documentNumberB, $result[0]->getdocumentNumber()->toString());
+    }
+
+    public function testGetRelatedDocumentsByFamily(): void
+    {
+        $organisation = OrganisationFactory::createOne();
+
+        $dossierA = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::PUBLISHED]);
+        $dossierB = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::PUBLISHED]);
+
+        $documentA = DocumentFactory::createOne([
+            'documentNumber' => 'FOO-123',
+            'dossiers' => [$dossierA],
+            'familyId' => 123,
+        ]);
+        DocumentFactory::createOne([
+            'documentNumber' => $documentNumberB = 'FOO-456',
+            'dossiers' => [$dossierA],
+            'familyId' => 123,
+        ]);
+        DocumentFactory::createOne([
+            'documentNumber' => 'FOO-789',
+            'dossiers' => [$dossierA],
+            'familyId' => 456,
+        ]);
+        DocumentFactory::createOne([
+            'documentNumber' => 'FOO-999',
+            'dossiers' => [$dossierB],
+            'familyId' => 123,
+        ]);
+
+        /**
+         * @var QueryBuilder $queryBuilder
+         */
+        $queryBuilder = $this->documentRepository->getRelatedDocumentsByFamily(
+            $dossierA,
+            $documentA,
+        );
+
+        /**
+         * @var array<array-key, Document> $result
+         */
+        $result = $queryBuilder->getQuery()->getResult();
+
+        self::assertCount(1, $result);
+        self::assertSame($documentNumberB, $result[0]->getdocumentNumber()->toString());
+    }
+
+    public function testGetRevokedDocumentsInPublicDossiers(): void
+    {
+        $organisation = OrganisationFactory::createOne();
+
+        $dossierA = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::PUBLISHED]);
+        $dossierB = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::CONCEPT]);
+
+        $docA = DocumentFactory::createOne([
+            'documentNumber' => $documentNumberA = 'FOO-123',
+            'dossiers' => [$dossierA],
+        ]);
+        $docA->withdraw(DocumentWithdrawReason::DATA_IN_DOCUMENT, '');
+        save($docA);
+
+        DocumentFactory::createOne([
+            'documentNumber' => $documentNumberB = 'FOO-456',
+            'dossiers' => [$dossierA],
+            'suspended' => true,
+        ]);
+
+        // This one should not be matched, not suspended and not withdrawn
+        DocumentFactory::createOne([
+            'documentNumber' => 'FOO-789',
+            'dossiers' => [$dossierA],
+            'suspended' => false,
+        ]);
+
+        // This one should not be matched, not a public dossier
+        DocumentFactory::createOne([
+            'documentNumber' => 'FOO-999',
+            'dossiers' => [$dossierB],
+            'suspended' => true,
+        ]);
+
+        /**
+         * @var array<array-key, Document> $result
+         */
+        $result = $this->documentRepository->getRevokedDocumentsInPublicDossiers();
+
+        self::assertCount(2, $result);
+        self::assertSame($documentNumberA, $result[0]->getdocumentNumber()->toString());
+        self::assertSame($documentNumberB, $result[1]->getdocumentNumber()->toString());
+    }
+
+    public function testGetDocumentSearchEntry(): void
+    {
+        $organisation = OrganisationFactory::createOne();
+
+        $dossier = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::PUBLISHED]);
+        $documentNumber = DocumentNumber::fromString('FOO-123');
+        DocumentFactory::createOne([
+            'documentNumber' => $documentNumber,
+            'dossiers' => [$dossier],
+            'fileInfo' => FileInfoFactory::createOne([
+                'uploaded' => true,
+            ]),
+        ]);
+
+        $result = $this->documentRepository->getDocumentSearchEntry($documentNumber);
+
+        self::assertNotNull($result);
+        self::assertInstanceOf(DocumentNumber::class, $result->documentNumber);
+        self::assertSame($documentNumber->toString(), $result->documentNumber->toString());
+    }
+
+    public function testFindByDocumentNumber(): void
+    {
+        $documentNumber = DocumentNumber::fromString('FOO-123');
+
+        DocumentFactory::createOne([
+            'documentNumber' => $documentNumber,
+        ]);
+
+        $result = $this->documentRepository->findByDocumentNumber($documentNumber);
+
+        self::assertNotNull($result);
+        self::assertEquals($documentNumber, $result->getDocumentNumber());
+    }
+
+    public function testGetAllDocumentNumbersForDossier(): void
+    {
+        $organisation = OrganisationFactory::createOne();
+
+        $dossier = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::PUBLISHED]);
+
+        DocumentFactory::createOne([
+            'documentNumber' => $documentNumberA = 'FOO-123',
+            'dossiers' => [$dossier],
+        ]);
+
+        DocumentFactory::createOne([
+            'documentNumber' => $documentNumberB = 'FOO-456',
+            'dossiers' => [$dossier],
+        ]);
+
+        $result = $this->documentRepository->getAllDocumentNumbersForDossier($dossier);
+
+        self::assertContainsOnlyInstancesOf(DocumentNumber::class, $result);
+        self::assertEqualsCanonicalizing(
+            [$documentNumberA, $documentNumberB],
+            array_map(
+                static fn (DocumentNumber $documentNumber): string => $documentNumber->toString(),
+                $result,
+            ),
+        );
+    }
+
+    public function testGetDossierDocumentsQueryBuilder(): void
+    {
+        $organisation = OrganisationFactory::createOne();
+
+        $dossier = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::PUBLISHED]);
+
+        DocumentFactory::createOne([
+            'documentNumber' => $documentNumber = 'FOO-123',
+            'dossiers' => [$dossier],
+        ]);
+
+        DocumentFactory::createOne([
+            'documentNumber' => 'FOO-456',
+        ]);
+
+        $result = $this->documentRepository->getAllDossierDocumentsWithDossiers($dossier);
+
+        self::assertCount(1, $result);
+        self::assertSame($documentNumber, $result[0]->getdocumentNumber()->toString());
+    }
+
+    public function testFindOneByDossierAndDocumentId(): void
+    {
+        $organisation = OrganisationFactory::createOne();
+
+        $dossier = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::PUBLISHED]);
+
+        $documentId = DocumentId::create('foo.123');
+        DocumentFactory::createOne([
+            'documentId' => $documentId,
+            'dossiers' => [$dossier],
+        ]);
+
+        $result = $this->documentRepository->findOneByDossierAndDocumentId($dossier, $documentId);
+
+        self::assertNotNull($result);
+        self::assertEquals($documentId, $result->getDocumentId());
+    }
+
+    public function testFindOneByDossierNumberAndDocumentNumber(): void
+    {
+        $organisation = OrganisationFactory::createOne();
+
+        $dossier = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::PUBLISHED]);
+
+        $document = DocumentFactory::createOne([
+            'documentNumber' => $documentNumber = 'FOO-123',
+            'dossiers' => [$dossier],
+        ]);
+
+        $result = $this->documentRepository->findOneByDossierNumberAndDocumentNumber(
+            $dossier->getDocumentPrefix(),
+            $dossier->getDossierNumber(),
+            $documentNumber,
+        );
+
+        self::assertSame($document, $result);
+    }
+
+    public function testFindOneByDossierAndId(): void
+    {
+        $organisation = OrganisationFactory::createOne();
+        $dossier = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::PUBLISHED]);
+
+        $document = DocumentFactory::createOne([
+            'documentId' => DocumentId::create('FOO.123'),
+            'dossiers' => [$dossier],
+        ]);
+
+        $result = $this->documentRepository->findOneByDossierAndId($dossier, $document->getId());
+
+        self::assertSame($document, $result);
+    }
+
+    public function testGetDossierDocumentsForPaginationQueryBuilder(): void
+    {
+        $organisation = OrganisationFactory::createOne();
+
+        $dossier = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::PUBLISHED]);
+
+        $documentNumberA = 'FOO-123';
+        $documentNumberB = 'FOO-456';
+
+        DocumentFactory::createOne([
+            'documentNumber' => $documentNumberA,
+            'dossiers' => [$dossier],
+            'documentDate' => PlainDate::today(),
+        ]);
+
+        DocumentFactory::createOne([
+            'documentNumber' => $documentNumberB,
+            'dossiers' => [$dossier],
+            'documentDate' => PlainDate::today()->addDays(1),
+        ]);
+
+        /**
+         * @var list<Document> $result
+         */
+        $result = $this->documentRepository->getDossierDocumentsForPaginationQuery($dossier)->getResult();
+
+        self::assertCount(2, $result);
+        self::assertSame($documentNumberA, $result[0]->getdocumentNumber()->toString());
+        self::assertSame($documentNumberB, $result[1]->getdocumentNumber()->toString());
+    }
+
+    #[WithStory(WooIndexWooDecisionStory::class)]
+    public function testGetPublishedDocumentsIterable(): void
+    {
+        $iterable = $this->documentRepository->getPublishedDocumentsIterable();
+
+        /** @var list<Document> $allDocuments */
+        $allDocuments = iterator_to_array($iterable, false);
+
+        /** @var non-empty-list<Document> $documents */
+        $documents = [
+            ...WooIndexWooDecisionStory::getPool('documents-1'),
+            ...WooIndexWooDecisionStory::getPool('documents-2'),
+        ];
+
+        $expectedDocumentUuids = array_map(
+            static fn (Document $document): string => $document->getId()->toRfc4122(),
+            $documents,
+        );
+
+        $this->assertCount(20, $allDocuments);
+        foreach ($allDocuments as $document) {
+            $this->assertContains($document->getId()->toRfc4122(), $expectedDocumentUuids);
+        }
+    }
+
+    public function testGetDocumentsMissingPublicationContextIterableReturnsOnlyDocumentsWithoutPublicationContext(): void
+    {
+        $firstDocumentWithoutContext = DocumentFactory::createOne(['publicationContext' => null]);
+        $secondDocumentWithoutContext = DocumentFactory::createOne(['publicationContext' => null]);
+        DocumentFactory::createOne(['publicationContext' => $this->getFaker()->publicationContext()]);
+
+        $iterable = $this->documentRepository->getDocumentsMissingPublicationContextIterable();
+        $documents = iterator_to_array($iterable, false);
+
+        self::assertCount(2, $documents);
+        self::assertSame($firstDocumentWithoutContext->getId(), $documents[0]->getId());
+        self::assertSame($secondDocumentWithoutContext->getId(), $documents[1]->getId());
+    }
+
+    public function testFindOneBydocumentNumberCaseInsensitive(): void
+    {
+        DocumentFactory::createOne([
+            'documentNumber' => $documentNumber = 'FOO-xx-123',
+        ]);
+
+        $result = $this->documentRepository->findOneByDocumentNumberCaseInsensitive(
+            DocumentNumber::fromString(strtoupper($documentNumber)),
+        );
+
+        self::assertNotNull($result);
+        self::assertSame($documentNumber, $result->getdocumentNumber()->toString());
+    }
+
+    public function testGetDocumentInquiryNumbers(): void
+    {
+        $document = DocumentFactory::createOne([
+            'documentNumber' => $documentNumber = 'FOO-xx-123',
+        ]);
+
+        InquiryFactory::createOne([
+            'inquiryNumber' => $inquiryNumber = 'FOO-123',
+            'documents' => [$document],
+        ]);
+
+        $documentInquiryNumbers = $this->documentRepository->getDocumentInquiryNumbers(
+            DocumentNumber::fromString(strtoupper($documentNumber)),
+        );
+
+        self::assertFalse($documentInquiryNumbers->isDocumentNotFound());
+        self::assertEquals($document->getId(), $documentInquiryNumbers->documentId);
+        self::assertEquals($documentInquiryNumbers->inquiryNumbers->values, [$inquiryNumber]);
+    }
+
+    public function testGetPublicInquiryDocumentsWithDossiers(): void
+    {
+        $organisation = OrganisationFactory::createOne();
+
+        $dossierA = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::PUBLISHED]);
+        $documentA1 = DocumentFactory::createOne(['dossiers' => [$dossierA]]);
+        $documentA2 = DocumentFactory::createOne(['dossiers' => [$dossierA]]);
+
+        $dossierB = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::PUBLISHED]);
+        $documentB1 = DocumentFactory::createOne(['dossiers' => [$dossierB]]);
+
+        $dossierConcept = WooDecisionFactory::createOne(['organisation' => $organisation, 'status' => DossierStatus::CONCEPT]);
+        $documentConcept = DocumentFactory::createOne(['dossiers' => [$dossierConcept]]);
+
+        $inquiry = InquiryFactory::createOne([
+            'inquiryNumber' => 'FOO-123',
+            'dossiers' => [
+                $dossierA,
+                $dossierB,
+                $dossierConcept,
+            ],
+            'documents' => [
+                $documentA1,
+                $documentA2,
+                $documentB1,
+                $documentConcept,
+            ],
+            'organisation' => $organisation,
+        ]);
+
+        self::assertEqualsCanonicalizing(
+            [
+                $documentA1->getId(),
+                $documentA2->getId(),
+                $documentB1->getId(),
+                // Important: the document from the concept dossier must be excluded!
+            ],
+            array_map(
+                static fn (Document $document): Uuid => $document->getId(),
+                $this->documentRepository->getPublicInquiryDocumentsWithDossiers($inquiry),
+            ),
+        );
+    }
+
+    public function testFindByDossierAndExternalId(): void
+    {
+        $externalId = $this->getFaker()->externalId();
+
+        $dossier = WooDecisionFactory::createOne();
+        DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'externalId' => $externalId,
+        ]);
+
+        $result = $this->documentRepository->findByDossierAndExternalId($dossier, $externalId);
+
+        self::assertEquals($externalId, $result?->getExternalId());
+    }
+
+    public function testFindByDossierAndExternalIdWhenNotLinkedReturnsNull(): void
+    {
+        $externalId = $this->getFaker()->externalId();
+
+        $dossier = WooDecisionFactory::createOne();
+        DocumentFactory::createOne([
+            'externalId' => $externalId,
+        ]);
+
+        $result = $this->documentRepository->findByDossierAndExternalId($dossier, $externalId);
+
+        self::assertNull($result);
+    }
+
+    public function testHasIncompleteDocumentsReturnsFalseForCompleteDocuments(): void
+    {
+        $dossier = WooDecisionFactory::createOne();
+
+        DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-001',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => true]),
+        ]);
+
+        DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-002',
+            'judgement' => Judgement::NOT_PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => false]),
+        ]);
+
+        self::assertFalse($this->documentRepository->hasIncompleteDocumentsForDossier($dossier->getId()));
+    }
+
+    public function testHasIncompleteDocumentsReturnsTrueForMissingdocumentNumber(): void
+    {
+        $dossier = WooDecisionFactory::createOne();
+
+        DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => '',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => true]),
+        ]);
+
+        self::assertTrue($this->documentRepository->hasIncompleteDocumentsForDossier($dossier->getId()));
+    }
+
+    public function testHasIncompleteDocumentsReturnsTrueForWhitespacedocumentNumber(): void
+    {
+        $dossier = WooDecisionFactory::createOne();
+
+        DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => '   ',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => true]),
+        ]);
+
+        self::assertTrue($this->documentRepository->hasIncompleteDocumentsForDossier($dossier->getId()));
+    }
+
+    public function testHasIncompleteDocumentsReturnsTrueForMissingJudgement(): void
+    {
+        $dossier = WooDecisionFactory::createOne();
+
+        // Create document manually since setJudgement requires non-null but property is nullable
+        $document = new Document();
+        $document->setDocumentNumber(DocumentNumber::fromString('DOC-001'));
+        $document->setDocumentId(DocumentId::create('001'));
+        $document->setFileInfo(FileInfoFactory::createOne(['uploaded' => true]));
+        $document->addDossier($dossier);
+
+        $this->documentRepository->save($document, true);
+
+        self::assertTrue($this->documentRepository->hasIncompleteDocumentsForDossier($dossier->getId()));
+    }
+
+    public function testHasIncompleteDocumentsReturnsTrueForPublicDocumentWithoutFile(): void
+    {
+        $dossier = WooDecisionFactory::createOne();
+
+        DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-001',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => false]),
+        ]);
+
+        self::assertTrue($this->documentRepository->hasIncompleteDocumentsForDossier($dossier->getId()));
+    }
+
+    public function testHasIncompleteDocumentsReturnsTrueForPartialPublicDocumentWithoutFile(): void
+    {
+        $dossier = WooDecisionFactory::createOne();
+
+        DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-001',
+            'judgement' => Judgement::PARTIAL_PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => false]),
+        ]);
+
+        self::assertTrue($this->documentRepository->hasIncompleteDocumentsForDossier($dossier->getId()));
+    }
+
+    public function testHasIncompleteDocumentsReturnsFalseForWithdrawnDocumentWithoutFile(): void
+    {
+        $dossier = WooDecisionFactory::createOne();
+
+        DocumentFactory::new()
+            ->withdrawn()
+            ->create([
+                'dossiers' => [$dossier],
+                'documentNumber' => 'DOC-001',
+                'judgement' => Judgement::PUBLIC,
+            ]);
+
+        self::assertFalse($this->documentRepository->hasIncompleteDocumentsForDossier($dossier->getId()));
+    }
+
+    public function testHasIncompleteDocumentsReturnsFalseForSuspendedDocumentWithoutFile(): void
+    {
+        $dossier = WooDecisionFactory::createOne();
+
+        DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-001',
+            'judgement' => Judgement::PUBLIC,
+            'suspended' => true,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => false]),
+        ]);
+
+        self::assertFalse($this->documentRepository->hasIncompleteDocumentsForDossier($dossier->getId()));
+    }
+
+    public function testHasIncompleteDocumentsReturnsFalseForAlreadyPublicDocumentWithoutFile(): void
+    {
+        $dossier = WooDecisionFactory::createOne();
+
+        DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-001',
+            'judgement' => Judgement::ALREADY_PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => false]),
+        ]);
+
+        self::assertFalse($this->documentRepository->hasIncompleteDocumentsForDossier($dossier->getId()));
+    }
+
+    public function testHasIncompleteDocumentsReturnsFalseForNotPublicDocumentWithoutFile(): void
+    {
+        $dossier = WooDecisionFactory::createOne();
+
+        DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-001',
+            'judgement' => Judgement::NOT_PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => false]),
+        ]);
+
+        self::assertFalse($this->documentRepository->hasIncompleteDocumentsForDossier($dossier->getId()));
+    }
+
+    public function testHasIncompleteDocumentsReturnsTrueForIncompleteReferredDocument(): void
+    {
+        $dossier = WooDecisionFactory::createOne();
+
+        $referredDocument = DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-REFERRED',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => false]),
+        ]);
+
+        $mainDocument = DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-MAIN',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => true]),
+        ]);
+
+        $mainDocument->addRefersTo($referredDocument);
+        $this->documentRepository->save($mainDocument, true);
+
+        self::assertTrue($this->documentRepository->hasIncompleteDocumentsForDossier($dossier->getId()));
+    }
+
+    public function testHasIncompleteDocumentsReturnsTrueForMultipleLevelsOfReferrals(): void
+    {
+        $dossier = WooDecisionFactory::createOne();
+
+        $deepReferredDocument = DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => '',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => true]),
+        ]);
+
+        $middleDocument = DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-MIDDLE',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => true]),
+        ]);
+
+        $mainDocument = DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-MAIN',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => true]),
+        ]);
+
+        $middleDocument->addRefersTo($deepReferredDocument);
+        $this->documentRepository->save($middleDocument, true);
+
+        $mainDocument->addRefersTo($middleDocument);
+        $this->documentRepository->save($mainDocument, true);
+
+        self::assertTrue($this->documentRepository->hasIncompleteDocumentsForDossier($dossier->getId()));
+    }
+
+    public function testHasIncompleteDocumentsReturnsFalseWhenReferredDocumentIsComplete(): void
+    {
+        $dossier = WooDecisionFactory::createOne();
+
+        $referredDocument = DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-REFERRED',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => true]),
+        ]);
+
+        $mainDocument = DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-MAIN',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => true]),
+        ]);
+
+        $mainDocument->addRefersTo($referredDocument);
+        $this->documentRepository->save($mainDocument, true);
+
+        self::assertFalse($this->documentRepository->hasIncompleteDocumentsForDossier($dossier->getId()));
+    }
+
+    public function testHasIncompleteDocumentsReturnsTrueForMultipleIncompleteDocuments(): void
+    {
+        $dossier = WooDecisionFactory::createOne();
+
+        DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => '',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => true]),
+        ]);
+
+        DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-002',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => false]),
+        ]);
+
+        self::assertTrue($this->documentRepository->hasIncompleteDocumentsForDossier($dossier->getId()));
+    }
+
+    public function testHasIncompleteDocumentsReturnsFalseForDifferentDossier(): void
+    {
+        $dossierA = WooDecisionFactory::createOne();
+        $dossierB = WooDecisionFactory::createOne();
+
+        DocumentFactory::createOne([
+            'dossiers' => [$dossierB],
+            'documentNumber' => '',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => true]),
+        ]);
+
+        self::assertFalse($this->documentRepository->hasIncompleteDocumentsForDossier($dossierA->getId()));
+    }
+
+    public function testHasIncompleteDocumentsReturnsTrueWhenReferredDocumentHasMissingJudgement(): void
+    {
+        $dossier = WooDecisionFactory::createOne();
+
+        // Create referred document manually with null judgement
+        $referredDocument = new Document();
+        $referredDocument->setDocumentNumber(DocumentNumber::fromString('DOC-REFERRED'));
+        $referredDocument->setDocumentId(DocumentId::create('referred'));
+        $referredDocument->setFileInfo(FileInfoFactory::createOne(['uploaded' => true]));
+        $referredDocument->addDossier($dossier);
+        $this->documentRepository->save($referredDocument, true);
+
+        $mainDocument = DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-MAIN',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => true]),
+        ]);
+
+        $mainDocument->addRefersTo($referredDocument);
+        $this->documentRepository->save($mainDocument, true);
+
+        self::assertTrue($this->documentRepository->hasIncompleteDocumentsForDossier($dossier->getId()));
+    }
+
+    public function testHasIncompleteDocumentsReturnsFalseForComplexScenarioWithAllComplete(): void
+    {
+        $dossier = WooDecisionFactory::createOne();
+
+        // Create multiple referred documents, all complete
+        $referred1 = DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-REF-1',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => true]),
+        ]);
+
+        $referred2 = DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-REF-2',
+            'judgement' => Judgement::NOT_PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => false]),
+        ]);
+
+        $referred3 = DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-REF-3',
+            'judgement' => Judgement::PUBLIC,
+            'suspended' => true,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => false]),
+        ]);
+
+        $mainDocument = DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-MAIN',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => true]),
+        ]);
+
+        $mainDocument->addRefersTo($referred1);
+        $mainDocument->addRefersTo($referred2);
+        $mainDocument->addRefersTo($referred3);
+        $this->documentRepository->save($mainDocument, true);
+
+        self::assertFalse($this->documentRepository->hasIncompleteDocumentsForDossier($dossier->getId()));
+    }
+
+    public function testHasIncompleteDocumentsHandlesCircularReferrals(): void
+    {
+        $dossier = WooDecisionFactory::createOne();
+
+        $doc1 = DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-1',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => true]),
+        ]);
+
+        $doc2 = DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'documentNumber' => 'DOC-2',
+            'judgement' => Judgement::PUBLIC,
+            'fileInfo' => FileInfoFactory::createOne(['uploaded' => true]),
+        ]);
+
+        // Create circular reference
+        $doc1->addRefersTo($doc2);
+        $doc2->addRefersTo($doc1);
+        $this->documentRepository->save($doc1, true);
+        $this->documentRepository->save($doc2, true);
+
+        self::assertFalse($this->documentRepository->hasIncompleteDocumentsForDossier($dossier->getId()));
+    }
+
+    public function testFindExistingExternalIds(): void
+    {
+        $organisation = OrganisationFactory::createOne();
+        $dossier = WooDecisionFactory::createOne(['organisation' => $organisation]);
+
+        $existingId1 = ExternalId::create('existing-1');
+        $existingId2 = ExternalId::create('existing-2');
+        $nonExisting = ExternalId::create('non-existing');
+
+        DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'externalId' => $existingId1,
+        ]);
+        DocumentFactory::createOne([
+            'dossiers' => [$dossier],
+            'externalId' => $existingId2,
+        ]);
+
+        $result = $this->documentRepository->findExistingExternalIds([
+            $existingId1,
+            $nonExisting,
+            $existingId2,
+        ]);
+
+        self::assertCount(2, $result);
+        self::assertContains('existing-1', $result);
+        self::assertContains('existing-2', $result);
+    }
+
+    public function testDocumentMatchingItsPublicationContextAndIdIsNotReported(): void
+    {
+        DocumentFactory::createOne([
+            'documentNumber' => 'FOO-abc',
+            'publicationContext' => PublicationContext::fromString('FOO'),
+            'documentId' => 'abc',
+        ]);
+
+        self::assertSame(0, $this->documentRepository->countDocumentsWithoutPublicationContext());
+        self::assertSame(0, $this->documentRepository->countDocumentsWithDriftedDocumentNumber());
+        self::assertSame(0, $this->documentRepository->countDocumentsWithMixedCaseDocumentId());
+    }
+
+    public function testDocumentWithoutPublicationContextIsReportedOnlyAsMissingContext(): void
+    {
+        DocumentFactory::createOne([
+            'documentNumber' => 'FOO-abc',
+            'publicationContext' => null,
+            'documentId' => 'abc',
+        ]);
+
+        self::assertSame(1, $this->documentRepository->countDocumentsWithoutPublicationContext());
+        self::assertSame(0, $this->documentRepository->countDocumentsWithDriftedDocumentNumber());
+
+        $rows = $this->documentRepository->getDocumentsWithoutPublicationContext(100);
+
+        self::assertCount(1, $rows);
+        self::assertNull($rows[0]->getPublicationContext());
+        self::assertSame('FOO-abc', $rows[0]->getDocumentNumber()->toString());
+    }
+
+    public function testDocumentNumberThatDoesNotMatchItsPublicationContextAndIdIsReportedAsDrifted(): void
+    {
+        DocumentFactory::createOne([
+            'documentNumber' => 'BAR-abc',
+            'publicationContext' => PublicationContext::fromString('FOO'),
+            'documentId' => 'abc',
+        ]);
+
+        self::assertSame(1, $this->documentRepository->countDocumentsWithDriftedDocumentNumber());
+        self::assertSame(0, $this->documentRepository->countDocumentsWithoutPublicationContext());
+
+        $rows = $this->documentRepository->getDocumentsWithDriftedDocumentNumber(100);
+
+        self::assertCount(1, $rows);
+        self::assertSame('BAR-abc', $rows[0]->getDocumentNumber()->toString());
+        self::assertSame('FOO', (string) $rows[0]->getPublicationContext());
+        self::assertSame('abc', (string) $rows[0]->getDocumentId());
+    }
+
+    public function testDocumentNumberDifferingOnlyInCasingIsReportedAsDrifted(): void
+    {
+        DocumentFactory::createOne([
+            'documentNumber' => 'FOO-ABC',
+            'publicationContext' => PublicationContext::fromString('FOO'),
+            'documentId' => 'abc',
+        ]);
+
+        self::assertSame(1, $this->documentRepository->countDocumentsWithDriftedDocumentNumber());
+    }
+
+    public function testUppercaseDocumentIdIsReportedAsMixedCaseAndNotAsDrifted(): void
+    {
+        $document = DocumentFactory::createOne([
+            'documentNumber' => 'FOO-ABC',
+            'publicationContext' => PublicationContext::fromString('FOO'),
+            'documentId' => 'abc',
+        ]);
+
+        self::fromContainer(EntityManagerInterface::class)->getConnection()->executeStatement(
+            'UPDATE document SET document_id = :documentId WHERE id = :id',
+            ['documentId' => 'ABC', 'id' => (string) $document->getId()],
+        );
+
+        self::assertSame(1, $this->documentRepository->countDocumentsWithMixedCaseDocumentId());
+        self::assertSame(0, $this->documentRepository->countDocumentsWithDriftedDocumentNumber());
+        self::assertCount(1, $this->documentRepository->getDocumentsWithMixedCaseDocumentId(100));
+    }
+
+    public function testDriftedDocumentRowsAreLimitedWhileTheCountCoversEveryRow(): void
+    {
+        DocumentFactory::createOne([
+            'documentNumber' => 'BAR-abc',
+            'publicationContext' => PublicationContext::fromString('FOO'),
+            'documentId' => 'abc',
+        ]);
+        DocumentFactory::createOne([
+            'documentNumber' => 'BAR-def',
+            'publicationContext' => PublicationContext::fromString('FOO'),
+            'documentId' => 'def',
+        ]);
+        DocumentFactory::createOne([
+            'documentNumber' => 'BAR-ghi',
+            'publicationContext' => PublicationContext::fromString('FOO'),
+            'documentId' => 'ghi',
+        ]);
+
+        self::assertSame(3, $this->documentRepository->countDocumentsWithDriftedDocumentNumber());
+
+        $rows = $this->documentRepository->getDocumentsWithDriftedDocumentNumber(2);
+
+        self::assertCount(2, $rows);
+        self::assertSame(
+            ['BAR-abc', 'BAR-def'],
+            array_map(static fn (Document $document): string => $document->getDocumentNumber()->toString(), $rows),
+        );
+    }
+}

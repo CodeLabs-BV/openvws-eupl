@@ -1,0 +1,26 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Domain\Upload\Validation;
+
+use Shared\Domain\Upload\Command\ValidateUploadCommand;
+use Shared\Domain\Upload\Event\UploadCompletedEvent;
+use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
+use Symfony\Component\Messenger\MessageBusInterface;
+
+#[AsEventListener]
+final readonly class ValidationEventHandler
+{
+    public function __construct(
+        private MessageBusInterface $messageBus,
+    ) {
+    }
+
+    public function __invoke(UploadCompletedEvent $event): void
+    {
+        $this->messageBus->dispatch(
+            ValidateUploadCommand::forEntity($event->uploadEntity),
+        );
+    }
+}

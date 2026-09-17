@@ -1,0 +1,17 @@
+{% extends 'admin/base.html.twig' %}
+
+{% import "admin/macros/facet.html.twig" as macro %}
+
+{% set page_title = 'admin.inquiries.manage_details' | trans %}
+
+{% block body %}
+<div class="bhr-container">
+    {% include 'admin/shared/page-title.html.twig' %}
+
+    <div class="bhr-card">
+        {% include 'admin/shared/flash-messages.html.twig' %}
+
+        {{ form(form) }}
+    </div>
+</div>
+{% endblock %}

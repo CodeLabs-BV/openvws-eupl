@@ -1,0 +1,170 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Domain\Upload\Department;
+
+use Mockery;
+use Mockery\MockInterface;
+use Shared\Domain\Department\Department;
+use Shared\Domain\Department\DepartmentRepository;
+use Shared\Domain\Department\DepartmentService;
+use Shared\Domain\Upload\Department\DepartmentUploadVoter;
+use Shared\Domain\Upload\UploadRequest;
+use Shared\Domain\Upload\UploadService;
+use Shared\Service\Uploader\UploadGroupId;
+use Shared\Tests\Unit\UnitTestCase;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\InputBag;
+use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
+
+final class DepartmentUploadVoterTest extends UnitTestCase
+{
+    private DepartmentRepository&MockInterface $repository;
+    private DepartmentService&MockInterface $departmentService;
+    private TokenInterface&MockInterface $token;
+    private UploadedFile&MockInterface $uploadedFile;
+
+    private DepartmentUploadVoter $voter;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->repository = Mockery::mock(DepartmentRepository::class);
+        $this->departmentService = Mockery::mock(DepartmentService::class);
+        $this->token = Mockery::mock(TokenInterface::class);
+        $this->uploadedFile = Mockery::mock(UploadedFile::class);
+
+        $this->voter = new DepartmentUploadVoter(
+            $this->repository,
+            $this->departmentService,
+        );
+    }
+
+    public function testVotorWithUnknownAttribute(): void
+    {
+        $subject = new UploadRequest(
+            2,
+            3,
+            'foo-bar-123',
+            $this->uploadedFile,
+            UploadGroupId::DEPARTMENT,
+            new InputBag(['departmentId' => '123']),
+        );
+
+        $voterResult = $this->voter->vote($this->token, $subject, ['unknown_attribute']);
+
+        self::assertEquals(VoterInterface::ACCESS_ABSTAIN, $voterResult);
+    }
+
+    public function testVotorWithUnsupportedSubject(): void
+    {
+        $voterResult = $this->voter->vote($this->token, 'invalid subject', [UploadService::SECURITY_ATTRIBUTE]);
+
+        self::assertEquals(VoterInterface::ACCESS_ABSTAIN, $voterResult);
+    }
+
+    public function testVotorWithUnsupportedGroupId(): void
+    {
+        $subject = new UploadRequest(
+            2,
+            3,
+            'foo-bar-123',
+            $this->uploadedFile,
+            UploadGroupId::ATTACHMENTS,
+            new InputBag(['departmentId' => '123']),
+        );
+
+        $voterResult = $this->voter->vote($this->token, $subject, [UploadService::SECURITY_ATTRIBUTE]);
+
+        self::assertEquals(VoterInterface::ACCESS_ABSTAIN, $voterResult);
+    }
+
+    public function testVotorWithMissingDepartmentId(): void
+    {
+        $subject = new UploadRequest(
+            2,
+            3,
+            'foo-bar-123',
+            $this->uploadedFile,
+            UploadGroupId::DEPARTMENT,
+            new InputBag(),
+        );
+
+        $voterResult = $this->voter->vote($this->token, $subject, [UploadService::SECURITY_ATTRIBUTE]);
+
+        self::assertEquals(VoterInterface::ACCESS_ABSTAIN, $voterResult);
+    }
+
+    public function testVotorWithNonExistingDepartment(): void
+    {
+        $subject = new UploadRequest(
+            2,
+            3,
+            'foo-bar-123',
+            $this->uploadedFile,
+            UploadGroupId::DEPARTMENT,
+            new InputBag(['departmentId' => $departmentId = '123']),
+        );
+
+        $this->repository->expects('find')->with($departmentId)->andReturnNull();
+
+        $voterResult = $this->voter->vote($this->token, $subject, [UploadService::SECURITY_ATTRIBUTE]);
+
+        self::assertEquals(VoterInterface::ACCESS_DENIED, $voterResult);
+    }
+
+    public function testVotorWithDepartmentServiceUserCanEditLandingPageReturningFalse(): void
+    {
+        $subject = new UploadRequest(
+            2,
+            3,
+            'foo-bar-123',
+            $this->uploadedFile,
+            UploadGroupId::DEPARTMENT,
+            new InputBag(['departmentId' => $departmentId = '123']),
+        );
+
+        $this->repository
+            ->expects('find')
+            ->with($departmentId)
+            ->andReturn($department = Mockery::mock(Department::class));
+
+        $this->departmentService
+            ->expects('userCanEditLandingpage')
+            ->with($department)
+            ->andReturnFalse();
+
+        $voterResult = $this->voter->vote($this->token, $subject, [UploadService::SECURITY_ATTRIBUTE]);
+
+        self::assertEquals(VoterInterface::ACCESS_DENIED, $voterResult);
+    }
+
+    public function testVotorWithDepartmentServiceUserCanEditLandingPageReturningTrue(): void
+    {
+        $subject = new UploadRequest(
+            2,
+            3,
+            'foo-bar-123',
+            $this->uploadedFile,
+            UploadGroupId::DEPARTMENT,
+            new InputBag(['departmentId' => $departmentId = '123']),
+        );
+
+        $this->repository
+            ->expects('find')
+            ->with($departmentId)
+            ->andReturn($department = Mockery::mock(Department::class));
+
+        $this->departmentService
+            ->expects('userCanEditLandingpage')
+            ->with($department)
+            ->andReturnTrue();
+
+        $voterResult = $this->voter->vote($this->token, $subject, [UploadService::SECURITY_ATTRIBUTE]);
+
+        self::assertEquals(VoterInterface::ACCESS_GRANTED, $voterResult);
+    }
+}

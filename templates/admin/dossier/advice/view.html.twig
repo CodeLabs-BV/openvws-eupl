@@ -1,0 +1,58 @@
+{% extends 'admin/dossier/shared/view.html.twig' %}
+
+{% set aboutTitle = 'admin.global.advice_on' | trans %}
+
+{% set descriptionLabel = 'admin.dossiers.advice.description' | trans %}
+{% set internalReferenceLabel = 'admin.dossiers.advice.form.details.ref_int' | trans %}
+
+{% set dossierTypeTitle = 'dossier.type.advice' | trans %}
+{% set periodLabel = 'admin.dossiers.advice.date' | trans %}
+{% set summaryLabel = 'admin.dossiers.advice.summary' | trans %}
+{% set documentLabel = 'admin.dossiers.advice.document' | trans %}
+{% set completeFirstOpenStepTitle = ('admin.dossiers.advice.complete_step.' ~ workflowStatus.firstOpenStep.stepName.value | default) | trans %}
+
+{% set deleteTitle = 'admin.dossiers.advice.delete' | trans %}
+{% set deleteBullets = [
+    'admin.dossiers.advice.delete_bullet-1' | trans,
+    'admin.dossiers.advice.delete_bullet-2' | trans,
+    'admin.dossiers.advice.delete_bullet-3' | trans,
+] %}
+
+{% block attachments %}
+    {% if attachments is defined %}
+        {% set filteredAttachments = attachments|filter(a => not a.type.isRequestForAdvice) %}
+        {% set requestsForAdvice = attachments|filter(a => a.type.isRequestForAdvice) %}
+
+        {% if requestsForAdvice | length > 0 %}
+            <twig:Admin:Definition term="Adviesaanvraag">
+                <ul>
+                    {% for attachment in requestsForAdvice %}
+                        <li class="pt-0.5">
+                            <twig:Admin:DownloadFile
+                                href="{{ attachment.downloadUrl }}"
+                                mimeType="{{ attachment.mimeType }}"
+                                text="{{ attachment.name }}"
+                            />
+                        </li>
+                    {% endfor %}
+                </ul>
+            </twig:Admin:Definition>
+        {% endif %}
+
+        {% if filteredAttachments | length > 0 %}
+            <twig:Admin:Definition term="Bijlagen">
+                <ul>
+                    {% for attachment in filteredAttachments %}
+                        <li class="pt-0.5">
+                            <twig:Admin:DownloadFile
+                                href="{{ attachment.downloadUrl }}"
+                                mimeType="{{ attachment.mimeType }}"
+                                text="{{ attachment.name }}"
+                            />
+                        </li>
+                    {% endfor %}
+                </ul>
+            </twig:Admin:Definition>
+        {% endif %}
+    {% endif %}
+{% endblock %}

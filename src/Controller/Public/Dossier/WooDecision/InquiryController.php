@@ -1,0 +1,211 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Controller\Public\Dossier\WooDecision;
+
+use Huluti\BreadcrumbsBundle\Model\Breadcrumbs;
+use Knp\Component\Pager\PaginatorInterface;
+use Shared\Doctrine\DocumentConditions;
+use Shared\Domain\Publication\BatchDownload\BatchDownloadScope;
+use Shared\Domain\Publication\BatchDownload\OnDemandZipGenerator;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Inquiry\Inquiry;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Inquiry\InquiryRepository;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecision;
+use Shared\Domain\Search\Index\Dossier\Mapper\PrefixedDossierNumber;
+use Shared\Domain\Search\Query\Facet\FacetDefinitions;
+use Shared\Service\DownloadResponseHelper;
+use Shared\Service\Inquiry\InquirySessionService;
+use Shared\Service\Search\Model\FacetKey;
+use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpKernel\Attribute\ValueResolver;
+use Symfony\Component\Routing\Attribute\Route;
+
+class InquiryController extends AbstractController
+{
+    public const string ROUTE_NAME_INQUIRY_DETAIL = 'app_inquiry_detail';
+
+    private const int MAX_DOCUMENTS_PER_PAGE = 10;
+    private const int MAX_DOSSIERS_PER_PAGE = 10;
+
+    public function __construct(
+        private readonly InquirySessionService $inquirySession,
+        private readonly PaginatorInterface $paginator,
+        private readonly InquiryRepository $inquiryRepository,
+        private readonly DownloadResponseHelper $downloadHelper,
+        private readonly OnDemandZipGenerator $onDemandZipGenerator,
+        private readonly FacetDefinitions $facetDefinitions,
+    ) {
+    }
+
+    #[Route('/zaak/{token}', name: self::ROUTE_NAME_INQUIRY_DETAIL, methods: ['GET'])]
+    public function detail(
+        #[MapEntity(mapping: ['token' => 'token'])] Inquiry $inquiry,
+    ): Response {
+        $this->inquirySession->saveInquiry($inquiry);
+        $documentCount = $this->inquiryRepository->getDocumentCountSummary($inquiry);
+
+        $searchUrl = $this->generateUrl(
+            'app_search',
+            [
+                $this->facetDefinitions->get(FacetKey::INQUIRY_DOCUMENTS)->getRequestParameter() => [$inquiry->getId()],
+            ],
+        );
+
+        $query = $this->inquiryRepository->getDossiersForInquiryQueryBuilder($inquiry);
+        $query->orderBy('dos.decisionDate', 'DESC')->setMaxResults(self::MAX_DOSSIERS_PER_PAGE);
+        $dossiers = $this->paginator->paginate($query);
+
+        return $this->render('public/dossier/woo-decision/inquiry/detail.html.twig', [
+            'inquiry' => $inquiry,
+            'dossiers' => $dossiers,
+            'dossierCount' => $this->inquiryRepository->countPubliclyAvailableDossiers($inquiry),
+            'scheduledDossiers' => $inquiry->getScheduledDossiers(),
+            'searchUrl' => $searchUrl,
+            'documentCount' => $documentCount,
+            'maxDossiersPerPage' => self::MAX_DOSSIERS_PER_PAGE,
+        ]);
+    }
+
+    #[Route('/zaak/{token}/inventarislijst/download', name: 'app_inquiry_inventory_download', methods: ['GET'])]
+    public function downloadInventory(
+        #[MapEntity(mapping: ['token' => 'token'])] Inquiry $inquiry,
+    ): StreamedResponse {
+        return $this->downloadHelper->getResponseForEntityWithFileInfo($inquiry->getInventory());
+    }
+
+    #[Route('/zaak/{token}/download/{documentPrefix}/{dossierNumber}', name: 'app_inquiry_download_zip', methods: ['GET', 'POST'])]
+    public function downloadZip(
+        #[MapEntity(mapping: ['token' => 'token'])] Inquiry $inquiry,
+        #[ValueResolver('dossierWithAccessCheck')] WooDecision $wooDecision,
+    ): Response {
+        $scope = BatchDownloadScope::forInquiryAndWooDecision($inquiry, $wooDecision);
+
+        return $this->onDemandZipGenerator->getStreamedResponse($scope);
+    }
+
+    #[Route('/zaak/{token}/dossiers', name: 'app_inquiry_dossiers', methods: ['GET'])]
+    public function dossiers(
+        #[MapEntity(mapping: ['token' => 'token'])] Inquiry $inquiry,
+        Request $request,
+        Breadcrumbs $breadcrumbs,
+    ): Response {
+        $breadcrumbs->addRouteItem('global.home', 'app_home');
+        $breadcrumbs->addRouteItem(
+            text: 'global.inquiry',
+            route: 'app_inquiry_detail',
+            parameters: ['token' => $inquiry->getToken()],
+        );
+        $breadcrumbs->addItem(
+            text: 'public.inquiry.dossiers_breadcrumb',
+        );
+
+        $this->inquirySession->saveInquiry($inquiry);
+
+        $searchUrl = $this->generateUrl(
+            'app_search',
+            [
+                $this->facetDefinitions->get(FacetKey::INQUIRY_DOCUMENTS)->getRequestParameter() => [$inquiry->getId()],
+            ],
+        );
+
+        $dossiers = $this->paginator->paginate(
+            $this->inquiryRepository->getDossiersForInquiryQueryBuilder($inquiry),
+            $request->query->getInt('p', 1),
+            20,
+            ['pageParameterName' => 'p'],
+        );
+
+        return $this->render('public/dossier/woo-decision/inquiry/dossiers.html.twig', [
+            'inquiry' => $inquiry,
+            'dossiers' => $dossiers,
+            'searchUrl' => $searchUrl,
+            'maxDossiersPerPage' => self::MAX_DOSSIERS_PER_PAGE,
+        ]);
+    }
+
+    #[Route('/zaak/{token}/dossier/{documentPrefix}/{dossierNumber}', name: 'app_inquiry_dossier', methods: ['GET'])]
+    public function dossier(
+        #[MapEntity(mapping: ['token' => 'token'])] Inquiry $inquiry,
+        #[ValueResolver('dossierWithAccessCheck')] WooDecision $wooDecision,
+        Request $request,
+        Breadcrumbs $breadcrumbs,
+    ): Response {
+        $breadcrumbs->addRouteItem('global.home', 'app_home');
+        $breadcrumbs->addRouteItem(
+            text: 'global.inquiry',
+            route: 'app_inquiry_detail',
+            parameters: ['token' => $inquiry->getToken()],
+        );
+        $breadcrumbs->addItem(
+            text: 'public.inquiry.dossier_detail_breadcrumb',
+        );
+
+        $this->inquirySession->saveInquiry($inquiry);
+
+        $downloadUrl = $this->generateUrl(
+            'app_inquiry_download_zip',
+            [
+                'token' => $inquiry->getToken(),
+                'documentPrefix' => $wooDecision->getDocumentPrefix(),
+                'dossierNumber' => $wooDecision->getDossierNumber(),
+            ],
+        );
+
+        $inquiryDocumentsParam = $this->facetDefinitions->get(FacetKey::INQUIRY_DOCUMENTS)->getRequestParameter();
+        $dossierNumberParam = $this->facetDefinitions->get(FacetKey::PREFIXED_DOSSIER_NUMBER)->getRequestParameter();
+
+        $searchUrl = $this->generateUrl(
+            'app_search',
+            [
+                $inquiryDocumentsParam => [$inquiry->getId()],
+                $dossierNumberParam => [PrefixedDossierNumber::forDossier($wooDecision)],
+            ],
+        );
+
+        $docQuery = $this->inquiryRepository->getDocsForInquiryDossierQueryBuilder($inquiry, $wooDecision);
+
+        $publicPagination = $this->paginator->paginate(
+            DocumentConditions::onlyPubliclyAvailable($docQuery),
+            $request->query->getInt('pu', 1),
+            self::MAX_DOCUMENTS_PER_PAGE,
+            ['pageParameterName' => 'pu'],
+        );
+
+        $alreadyPublicPagination = $this->paginator->paginate(
+            DocumentConditions::onlyAlreadyPublic($docQuery),
+            $request->query->getInt('pa', 1),
+            self::MAX_DOCUMENTS_PER_PAGE,
+            ['pageParameterName' => 'pa'],
+        );
+
+        $notPublicPagination = $this->paginator->paginate(
+            DocumentConditions::notPubliclyAvailable($docQuery),
+            $request->query->getInt('pn', 1),
+            self::MAX_DOCUMENTS_PER_PAGE,
+            ['pageParameterName' => 'pn'],
+        );
+
+        $notOnlinePagination = $this->paginator->paginate(
+            DocumentConditions::notOnline($docQuery),
+            $request->query->getInt('po', 1),
+            self::MAX_DOCUMENTS_PER_PAGE,
+            ['pageParameterName' => 'po'],
+        );
+
+        return $this->render('public/dossier/woo-decision/inquiry/dossier.html.twig', [
+            'inquiry' => $inquiry,
+            'dossier' => $wooDecision,
+            'public_docs' => $publicPagination,
+            'already_public_docs' => $alreadyPublicPagination,
+            'not_public_docs' => $notPublicPagination,
+            'not_online_docs' => $notOnlinePagination,
+            'searchUrl' => $searchUrl,
+            'downloadUrl' => $downloadUrl,
+        ]);
+    }
+}

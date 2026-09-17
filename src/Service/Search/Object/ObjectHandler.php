@@ -1,0 +1,89 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Service\Search\Object;
+
+use Elastic\Elasticsearch\Response\Elasticsearch;
+use MinVWS\TypeArray\TypeArray;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Document\Document;
+use Shared\Domain\Search\Index\ElasticConfig;
+use Shared\Domain\Search\Index\ElasticDocumentId;
+use Shared\Domain\Search\Index\Schema\ElasticNestedField;
+use Shared\Domain\Search\Index\Schema\ElasticPath;
+use Shared\Service\Elastic\ElasticClientInterface;
+use Throwable;
+
+/**
+ * DocumentHandler would be a better Elasticsearch name
+ * But that is really confusing because we also have Documents.
+ */
+readonly class ObjectHandler
+{
+    public function __construct(
+        private ElasticClientInterface $elastic,
+        private ElasticConfig $elasticConfig,
+    ) {
+    }
+
+    /**
+     * Returns true when the given document is ingested in ElasticSearch.
+     */
+    public function isIngested(Document $document): bool
+    {
+        $response = $this->elastic->exists([
+            'index' => $this->elasticConfig->readIndex,
+            'id' => ElasticDocumentId::forObject($document),
+        ]);
+
+        /** @var Elasticsearch $response */
+        return $response->asBool();
+    }
+
+    /**
+     * Returns the explicit content from a given document / page number.
+     */
+    public function getPageContent(Document $document, int $pageNr): string
+    {
+        $params = [
+            'index' => $this->elasticConfig->readIndex,
+            'body' => [
+                '_source' => false,
+                'query' => [
+                    'bool' => [
+                        'must' => [
+                            [
+                                'term' => [
+                                    '_id' => ElasticDocumentId::forObject($document),
+                                ],
+                            ],
+                            [
+                                'nested' => [
+                                    'path' => ElasticNestedField::PAGES->value,
+                                    'query' => [
+                                        'term' => [
+                                            ElasticPath::pagesPageNr()->value => $pageNr,
+                                        ],
+                                    ],
+                                    'inner_hits' => [
+                                        '_source' => ElasticPath::pagesContent()->value,
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        try {
+            /** @var Elasticsearch $response */
+            $response = $this->elastic->search($params);
+            $response = new TypeArray($response->asArray());
+
+            return $response->getString('[hits][hits][0][inner_hits][pages][hits][hits][0][_source][content]', '');
+        } catch (Throwable) {
+            return '';
+        }
+    }
+}

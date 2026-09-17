@@ -1,0 +1,98 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Service\Inventory;
+
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Document\Document;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Document\DocumentRepository;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecision;
+use Shared\Service\Inquiry\InquiryNumbers;
+
+use function array_diff;
+use function count;
+
+readonly class DocumentComparator
+{
+    public function __construct(
+        private DocumentRepository $documentRepository,
+        private LegacyDocumentNumberFactory $documentNumberFactory,
+    ) {
+    }
+
+    public function needsUpdate(WooDecision $dossier, Document $document, DocumentMetadata $metadata): bool
+    {
+        return $this->getChangeset($dossier, $document, $metadata)->hasChanges();
+    }
+
+    public function getChangeset(WooDecision $dossier, Document $document, DocumentMetadata $metadata): PropertyChangeset
+    {
+        $changeset = new PropertyChangeset();
+
+        // No comparison for 'id' and 'matter', these are part of the documentNumber that was used to fetch $document, so they certainly match.
+
+        $changeset->compare(MetadataField::JUDGEMENT->value, $document->getJudgement(), $metadata->getJudgement());
+        $changeset->compare(MetadataField::FAMILY->value, $document->getFamilyId(), $metadata->getFamilyId());
+        $changeset->compare(MetadataField::THREADID->value, $document->getThreadId(), $metadata->getThreadId());
+        $changeset->compare(MetadataField::GROUND->value, $document->getGrounds(), $metadata->getGrounds());
+        $changeset->compare('period', $document->getPeriod(), $metadata->getPeriod());
+        $changeset->compare(MetadataField::SUSPENDED->value, $document->isSuspended(), $metadata->isSuspended());
+        $changeset->compare(MetadataField::LINK->value, $document->getLinks(), $metadata->getLinks());
+        $changeset->compare(MetadataField::REMARK->value, $document->getRemark(), $metadata->getRemark());
+        $changeset->compare(
+            MetadataField::DATE->value,
+            $document->getDocumentDate()?->format('Y-m-d'),
+            $metadata->getDate()?->format('Y-m-d'),
+        );
+        $changeset->compare(
+            MetadataField::SOURCETYPE->value,
+            $document->getFileInfo()->getSourceType(),
+            $metadata->getSourceType(),
+        );
+        $changeset->compare(
+            MetadataField::DOCUMENT->value,
+            $document->getFileInfo()->getName(),
+            $metadata->getFilename($document->getDocumentNumber()),
+        );
+
+        if ($this->hasInquiryNumberUpdate($document, $metadata)) {
+            $changeset->add(MetadataField::INQUIRY_NUMBER->value);
+        }
+
+        if ($this->hasRefersToUpdate($dossier, $document, $metadata)) {
+            $changeset->add(MetadataField::REFERS_TO->value);
+        }
+
+        return $changeset;
+    }
+
+    private function hasInquiryNumberUpdate(Document $document, DocumentMetadata $metadata): bool
+    {
+        $currentInquiryNumbers = InquiryNumbers::forDocument($document);
+        $newInquiryNumbers = $metadata->getInquiryNumbers();
+        $addedInquiryNumbers = $newInquiryNumbers->getExtraValuesComparedToInput($currentInquiryNumbers);
+
+        // Case removals in the production report are intentionally ignored, only additions should be seen as a change.
+        return $addedInquiryNumbers->isNotEmpty();
+    }
+
+    public function hasRefersToUpdate(WooDecision $dossier, Document $document, DocumentMetadata $metadata): bool
+    {
+        $currentDocNrs = $document->getRefersTo()->map(
+            static fn (Document $referredDocument): string => $referredDocument->getDocumentNumber()->toString(),
+        )->toArray();
+
+        $newDocNrs = [];
+        foreach ($metadata->getRefersTo() as $referral) {
+            $documentNumber = $this->documentNumberFactory->fromReferral($dossier, $document, $referral);
+            $referredDocument = $this->documentRepository->findByDocumentNumber($documentNumber);
+            if (! $referredDocument) {
+                continue;
+            }
+
+            $newDocNrs[] = $referredDocument->getDocumentNumber()->toString();
+        }
+
+        return count($currentDocNrs) !== count($newDocNrs) || array_diff($currentDocNrs, $newDocNrs);
+    }
+}

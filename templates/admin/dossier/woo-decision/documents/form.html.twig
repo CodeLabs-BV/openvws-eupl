@@ -1,0 +1,67 @@
+{% set uploadStatus = dossier.uploadStatus %}
+{% set isQueuedOrRunning = inventoryStatus.isQueued or inventoryStatus.isRunning %}
+
+<div class="bhr-card js-inventory-status-wrapper">
+    <div class="text-lg pb-2">
+        <h2 class="bhr-form-help">Stap 1</h2>
+        <p><strong>Upload productierapport</strong></p>
+        <p class="bhr-form-help mt-2 mb-3">
+            Upload de Zylab rapportage die bij dit besluit hoort. Zie de <a target="_blank" class="bhr-a" href="{{ PUBLIC_BASE_URL }}/documentatie/publiceren/woo-besluit/productierapport.html" data-e2e-name="doc-link">documentatie</a> voor een voorbeeldrapport en meer toelichting.
+        </p>
+
+        {% if dossier.isInventoryOptional and not dossier.hasProductionReport and not isQueuedOrRunning %}
+            <div class="mb-4">
+                <twig:Admin:Alert type="info">
+                    <p>{{ 'admin.inventory.optional_explanation.1' | trans({ 'button_name': 'global.save_and_continue' | trans }) }}</p>
+
+                    <twig:block name="extra">
+                        <p><strong>{{ 'global.attention' | trans }}:</strong> {{ 'admin.inventory.optional_explanation.2' | trans }}</p>
+                    </twig:block>
+                </twig:Admin:Alert>
+            </div>
+        {% endif %}
+    </div>
+
+    <div
+        {% if dataPath is not empty %}
+            id="js-inventory-status"
+            data-done-url="{{ path('app_admin_dossier_woodecision_documents_concept', { documentPrefix: dossier.documentPrefix, dossierNumber: dossier.dossierNumber }) }}"
+            data-endpoint="{{ path(dataPath, { documentPrefix: dossier.documentPrefix, dossierNumber: dossier.dossierNumber }) }}"
+            role="status"
+        {% endif %}
+    >
+        {% include 'admin/dossier/woo-decision/documents/processrun.html.twig' with { dossier: dossier, inventoryStatus: inventoryStatus } %}
+    </div>
+
+    {% if isQueuedOrRunning %}
+        <div class="pt-8 js-inventory-status-continue-later">
+            <a href="{{ path('app_admin_dossiers') }}" class="bhr-btn-bordered-primary ">{{ 'admin.global.continue_later' | trans }}</a>
+        </div>
+    {% endif %}
+</div>
+
+{% if inventoryStatus.isReadyForDocumentUpload and app.request.query.get('replace') is null %}
+<div class="bhr-card mt-10">
+    <div class="text-lg pb-2">
+        <h2 class="bhr-form-help">Stap 2</h2>
+        <p><strong>Upload documenten</strong></p>
+        <p class="bhr-form-help mt-2 mb-3">Upload alle documenten die met beoordeling 'openbaar' of 'deels openbaar' in het productierapport staan. Zorg dat de bestandsnamen overeenkomen met de documentnummers in het productierapport (bijvoorbeeld: 123.pdf)</p>
+
+        <div class="text-bhr-gray-700">
+            <p class="bhr-p mb-2">Je kunt:</p>
+
+            <ul class="bhr-ul mb-6">
+                <li class="bhr-li">Meerdere documenten tegelijkertijd uploaden.</li>
+                <li class="bhr-li">De publicatie op een later moment aanvullen met extra bestanden.</li>
+            </ul>
+        </div>
+    </div>
+
+    <twig:Admin:Publication:WooDecision:AddDocuments
+        continueLaterUrl="{{ path('app_admin_dossier', { documentPrefix: dossier.documentPrefix, dossierNumber: dossier.dossierNumber }) }}"
+        dossier="{{ dossier }}"
+        nextStepUrl="{{ path(workflowStatus.nextStep.routeName, { documentPrefix: dossier.documentPrefix, dossierNumber: dossier.dossierNumber }) }}"
+        uploadGroupId="{{ uploadGroupId }}"
+    />
+</div>
+{% endif %}

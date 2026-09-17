@@ -1,0 +1,52 @@
+name: Setup PHP
+description: Compose action that sets up PHP and Composer
+
+inputs:
+  composer-options:
+    description: Extra options for composer install (i.e. '--no-dev')
+    default: ""
+  php-version:
+    description: The PHP version
+    default: "8.4"
+  coverage:
+    description: Set PHP coverage driver
+    default: none
+  extensions:
+    description: Set PHP extensions
+  github-token:
+    description: Add a Github Token which will be used for Composer auth
+
+runs:
+  using: composite
+  steps:
+    - name: Get composer cache directory
+      id: composer-cache-dir
+      shell: bash
+      run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+    - name: Restore Composer cache
+      id: composer-cache
+      uses: actions/cache/restore@v5
+      with:
+        path: ${{ steps.composer-cache-dir.outputs.dir }}
+        key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+        restore-keys: ${{ runner.os }}-composer-
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ inputs.php-version }}
+        coverage: ${{ inputs.coverage }}
+        extensions: ${{ inputs.extensions }}
+        github-token: ${{ inputs.github-token }}
+
+    - name: Install dependencies
+      shell: bash
+      run: composer install --no-interaction --no-progress --prefer-dist --ignore-platform-reqs ${{ inputs.composer-options }}
+
+    - name: Save Composer cache
+      if: ${{ always() && steps.composer-cache.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@v5
+      with:
+        path: ${{ steps.composer-cache-dir.outputs.dir }}
+        key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}

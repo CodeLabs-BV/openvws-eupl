@@ -1,0 +1,27 @@
+{% if wo_breadcrumbs() | length %}
+    <nav class="-mx-4 py-1.5" aria-label="{{ 'public.global.current_location' | trans }}">
+        <ol class="flex flex-wrap leading-none">
+            {% set pathToHomepage = path('app_home') %}
+            {% for breadcrumb in breadcrumbs %}
+                <li>
+                    {% if breadcrumb.url == pathToHomepage %}
+                        <a class="block px-3.5 py-3 focus:-outline-offset-4 relative mr-3.5" data-e2e-name="breadcrumb" href="{{ breadcrumb.url }}">
+                            <twig:Public:Icon name="house" color="fill-black" size="22" class="-mt-1" />
+                            <span class="sr-only">Home</span>
+                            <twig:Public:Icon class="absolute -right-4.5 top-2 mt-px" name="chevron-right" color="fill-black" />
+                        </a>
+                    {% elseif loop.last %}
+                        <span class="block font-bold p-3" aria-current="page">{{- breadcrumb.text | trans(breadcrumb.translationParameters) -}}</span>
+                    {% else %}
+                        <a class="block p-3 underline hover-focus:no-underline focus:-outline-offset-4 relative mr-3.5" data-e2e-name="breadcrumb" href="{{ breadcrumb.url }}">
+                            {{- breadcrumb.text | trans(breadcrumb.translationParameters) -}}
+                            <twig:Public:Icon class="absolute -right-4.5 top-2.5" name="chevron-right" color="fill-black" />
+                        </a>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ol>
+    </nav>
+{% endif %}
+
+

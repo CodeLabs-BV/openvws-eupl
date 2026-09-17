@@ -1,0 +1,118 @@
+<?php
+
+declare(strict_types=1);
+
+namespace PublicationApi\Domain\OpenApi;
+
+use PublicationApi\Api\Dossier\ExternalIdInUseException;
+use PublicationApi\Domain\Exception\EntityNotFoundException;
+use PublicationApi\Domain\Exception\ResourceInUseException;
+use PublicationApi\Domain\OpenApi\Exception\ValidationException;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\PropertyAccess\Exception\InvalidPropertyPathException;
+use Symfony\Component\Security\Core\Exception\AuthenticationException;
+use Symfony\Component\Serializer\Exception\NotEncodableValueException;
+use Throwable;
+
+use function sprintf;
+
+class ProblemDetailsFactory
+{
+    private const string BASE_URI = 'errors#';
+
+    public function build(Throwable $exception): ?ProblemDetails
+    {
+        return match (true) {
+            $exception instanceof AuthenticationException => $this->buildAuthenticationProblem($exception),
+            $exception instanceof EntityNotFoundException => $this->buildEntityNotFoundProblem($exception),
+            $exception instanceof NotFoundHttpException => $this->buildNotFoundProblem($exception),
+            $exception instanceof ValidationException => $this->buildValidationProblem($exception),
+            $exception instanceof InvalidPropertyPathException => $this->buildPropertyPathProblem($exception),
+            $exception instanceof NotEncodableValueException => $this->buildInvalidRequestBodyProblem(),
+            $exception instanceof ResourceInUseException => $this->buildResourceInUseProblem(),
+            $exception instanceof ExternalIdInUseException => $this->externalIdInUseProblem($exception),
+            default => null,
+        };
+    }
+
+    private function buildAuthenticationProblem(AuthenticationException $exception): ProblemDetails
+    {
+        return new ProblemDetails(
+            type: self::BASE_URI . 'authentication-failed',
+            title: 'Authentication Failed',
+            status: Response::HTTP_UNAUTHORIZED,
+            detail: $exception->getMessage(),
+        );
+    }
+
+    private function buildEntityNotFoundProblem(EntityNotFoundException $exception): ProblemDetails
+    {
+        return new ProblemDetails(
+            type: self::BASE_URI . 'resource-not-found',
+            title: 'Resource Not Found',
+            status: Response::HTTP_NOT_FOUND,
+            detail: sprintf('%s with id %s was not found', $exception->entityName, $exception->id),
+        );
+    }
+
+    private function buildNotFoundProblem(NotFoundHttpException $exception): ProblemDetails
+    {
+        return new ProblemDetails(
+            type: self::BASE_URI . 'resource-not-found',
+            title: 'Resource Not Found',
+            status: Response::HTTP_NOT_FOUND,
+            detail: $exception->getMessage(),
+        );
+    }
+
+    private function buildValidationProblem(ValidationException $exception): ProblemDetails
+    {
+        return new ProblemDetails(
+            type: self::BASE_URI . 'openapi-validation',
+            title: 'Invalid API Request',
+            status: Response::HTTP_UNPROCESSABLE_ENTITY,
+            detail: $exception->getMessage(),
+        );
+    }
+
+    private function buildPropertyPathProblem(InvalidPropertyPathException $exception): ProblemDetails
+    {
+        return new ProblemDetails(
+            type: self::BASE_URI . 'openapi-validation',
+            title: 'Invalid API Request',
+            status: Response::HTTP_UNPROCESSABLE_ENTITY,
+            detail: $exception->getMessage(),
+        );
+    }
+
+    private function buildInvalidRequestBodyProblem(): ProblemDetails
+    {
+        return new ProblemDetails(
+            type: self::BASE_URI . 'invalid-request-body',
+            title: 'Invalid Request Body',
+            status: Response::HTTP_UNPROCESSABLE_ENTITY,
+            detail: 'Request body must be a valid JSON object',
+        );
+    }
+
+    private function buildResourceInUseProblem(): ProblemDetails
+    {
+        return new ProblemDetails(
+            type: self::BASE_URI . 'resource-in-use',
+            title: 'Method Not Allowed',
+            status: Response::HTTP_METHOD_NOT_ALLOWED,
+            detail: 'Resource is still linked to one or more dossiers and cannot be deleted',
+        );
+    }
+
+    private function externalIdInUseProblem(ExternalIdInUseException $exception): ProblemDetails
+    {
+        return new ProblemDetails(
+            type: self::BASE_URI . 'external-id-in-use',
+            title: 'ExternalId already in use',
+            status: Response::HTTP_CONFLICT,
+            detail: $exception->getMessage(),
+        );
+    }
+}

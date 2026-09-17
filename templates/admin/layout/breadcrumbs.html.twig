@@ -1,0 +1,29 @@
+{% if wo_breadcrumbs() | length %}
+<div class="bhr-container">
+    <nav class="py-1.5" aria-label="{{ 'admin.global.current_location' | trans() }}">
+        <ol>
+            <li class="inline-flex">
+                <a class="underline inline-block hover-focus:no-underline relative p-3 mr-3" data-e2e-name="breadcrumb" href="{{ path('app_admin_index') }}">
+                    <twig:Admin:Icon name="house" class="-mt-0.5" />
+                    <span class="sr-only">Home</span>
+                    <twig:Admin:Icon name="chevron-right" class="absolute -right-5 top-3 mt-px" />
+                </a>
+            </li>
+            {% for breadcrumb in breadcrumbs %}
+                {% if loop.last %}
+                <li class="inline-flex p-3">
+                    {{ breadcrumb.text | trans() }}
+                </li>
+                {% else %}
+                <li class="inline-flex">
+                    <a class="underline inline-block hover-focus:no-underline relative p-3 mr-3" data-e2e-name="breadcrumb" href="{{ breadcrumb.url }}">
+                        <span class="block">{{ breadcrumb.text | trans() }}</span>
+                        <twig:Admin:Icon name="chevron-right" class="absolute -right-5 top-3 mt-px" />
+                    </a>
+                </li>
+                {% endif %}
+            {% endfor %}
+        </ol>
+    </nav>
+</div>
+{% endif %}

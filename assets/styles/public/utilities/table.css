@@ -1,0 +1,49 @@
+@utility woo-table {
+  @apply w-full leading-tight;
+
+  & th {
+    @apply text-left whitespace-nowrap;
+
+    &[scope="col"] {
+      @apply text-woo-dark-blue-600;
+    }
+  }
+
+  & th,
+  & td {
+    @apply align-top border-b border-woo-gray-200 py-2.5 px-2;
+
+    .woo-fill-cell {
+        @apply block -my-2.5 py-2.5 -mx-2 px-2;
+    }
+
+    &:first-child {
+        @apply pl-0;
+
+        .woo-fill-cell {
+            @apply pl-0 ml-0;
+        }
+    }
+
+    &:last-child {
+        @apply pr-0;
+
+        .woo-fill-cell {
+            @apply pr-0 mr-0;
+        }
+    }
+  }
+}
+
+@utility woo-table-cell-light {
+  @apply text-woo-gray-600 font-normal;
+}
+
+@utility woo-table-cell--wrap {
+  @apply flex flex-wrap gap-4;
+}
+
+@utility woo-responsive-table {
+  @apply overflow-x-auto;
+  @apply overflow-y-hidden; /* This doesn't do any harm (since there's no fixed height set) and prevents a bug with a scrollbar appearing on the right side of the table */
+}

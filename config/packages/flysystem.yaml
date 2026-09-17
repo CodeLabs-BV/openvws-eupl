@@ -1,0 +1,142 @@
+parameters:
+    document_path: '%kernel.project_dir%/var/documents'
+    batch_path: '%kernel.project_dir%/var/batches'
+    woo_index_path: '%kernel.project_dir%/var/woo_index'
+    upload_path: '%kernel.project_dir%/var/uploader'
+    working_copy_path: '%kernel.project_dir%/var/working_copy'
+    assets_path: '%kernel.project_dir%/var/assets'
+
+flysystem:
+    storages:
+        document.storage:
+            lazy:
+                source: 'document.storage.%env(STORAGE_DOCUMENT_ADAPTER)%'
+        batch.storage:
+            lazy:
+                source: 'batch.storage.%env(STORAGE_BATCH_ADAPTER)%'
+        woo_index.storage:
+            lazy:
+                source: 'woo_index.storage.%env(STORAGE_WOO_INDEX_ADAPTER)%'
+        upload.storage:
+            lazy:
+                source: 'upload.storage.%env(STORAGE_UPLOAD_ADAPTER)%'
+        working_copy.storage:
+            lazy:
+                source: 'working_copy.storage.local'
+        assets.storage:
+            lazy:
+                source: 'assets.storage.%env(STORAGE_ASSETS_ADAPTER)%'
+
+
+        #
+        # Minio storage definitions
+        #
+        document.storage.aws:
+            visibility: 'public'
+            directory_visibility: 'public'
+            aws:
+                client: 'Aws\S3\S3Client'
+                bucket: '%storage.minio.bucket.document%'
+
+        batch.storage.aws:
+            visibility: 'public'
+            directory_visibility: 'public'
+            aws:
+                client: 'Aws\S3\S3Client'
+                bucket: '%storage.minio.bucket.batch%'
+
+        woo_index.storage.aws:
+            visibility: 'public'
+            directory_visibility: 'public'
+            aws:
+                client: 'Aws\S3\S3Client'
+                bucket: '%storage.minio.bucket.woo_index%'
+
+        upload.storage.aws:
+            visibility: 'public'
+            directory_visibility: 'public'
+            aws:
+                client: 'Aws\S3\S3Client'
+                bucket: '%storage.minio.bucket.upload%'
+
+        assets.storage.aws:
+            visibility: 'public'
+            directory_visibility: 'public'
+            aws:
+                client: 'Aws\S3\S3Client'
+                bucket: '%storage.minio.bucket.assets%'
+
+        #
+        # Local storage definitions
+        #
+        document.storage.local: &document.storage.local
+            visibility: 'public'
+            directory_visibility: 'public'
+            local: &document.storage.local.options
+                directory: '%document_path%'
+                permissions:
+                    file:
+                        public: 0o664 # We want group to be able to read the file
+                        private: 0o600
+                    dir:
+                        public: 0o775
+                        private: 0o700
+
+        batch.storage.local:
+            <<: *document.storage.local
+            local:
+                <<: *document.storage.local.options
+                directory: '%batch_path%'
+
+        woo_index.storage.local:
+            <<: *document.storage.local
+            local:
+                <<: *document.storage.local.options
+                directory: '%woo_index_path%'
+
+        upload.storage.local:
+            <<: *document.storage.local
+            local:
+                <<: *document.storage.local.options
+                directory: '%upload_path%'
+
+        working_copy.storage.local:
+            <<: *document.storage.local
+            local:
+                <<: *document.storage.local.options
+                directory: '%working_copy_path%'
+
+        assets.storage.local:
+            <<: *document.storage.local
+            local:
+                <<: *document.storage.local.options
+                directory: '%upload_path%'
+
+        #
+        # Phpunit (vfsStream) storage definitions
+        #
+        document.storage.phpunit: &document.storage.phpunit
+            visibility: 'public'
+            directory_visibility: 'public'
+            local: &document.storage.phpunit.options
+                directory:   'vfs://root/%document_path%'
+                permissions:
+                    file:
+                        public: 0o664 # We want group to be able to read the file
+                        private: 0o600
+                    dir:
+                        public: 0o775
+                        private: 0o700
+
+        assets.storage.phpunit:
+            <<: *document.storage.phpunit
+            local:
+                <<: *document.storage.phpunit.options
+                directory: 'vfs://root/%assets_path%'
+
+when@test:
+    flysystem:
+        storages:
+            woo_index.storage.memory:
+                visibility: 'public'
+                memory: ~

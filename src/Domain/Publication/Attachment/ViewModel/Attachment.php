@@ -1,0 +1,39 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Domain\Publication\Attachment\ViewModel;
+
+use DateTimeImmutable;
+use Shared\Domain\Publication\Attachment\Enum\AttachmentLanguage;
+use Shared\Domain\Publication\Attachment\Enum\AttachmentType;
+use Shared\Domain\Publication\Attachment\Enum\AttachmentWithdrawReason;
+use Shared\Domain\Publication\SourceType;
+use Shared\Domain\Search\Result\SubType\SubTypeViewModelInterface;
+
+readonly class Attachment implements SubTypeViewModelInterface
+{
+    /**
+     * @param list<string> $grounds
+     */
+    public function __construct(
+        public string $id,
+        public ?string $name,
+        public string $formalDate,
+        public AttachmentType $type,
+        public ?string $mimeType,
+        public ?SourceType $sourceType,
+        public int $size,
+        public string $internalReference,
+        public AttachmentLanguage $language,
+        public array $grounds,
+        public string $downloadUrl,
+        public string $detailsUrl,
+        public int $pageCount,
+        public bool $isDownloadable,
+        public bool $withdrawn,
+        public ?AttachmentWithdrawReason $withdrawReason,
+        public ?DateTimeImmutable $withdrawDate,
+    ) {
+    }
+}

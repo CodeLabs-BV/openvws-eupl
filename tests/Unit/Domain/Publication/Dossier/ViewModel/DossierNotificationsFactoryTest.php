@@ -1,0 +1,66 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Domain\Publication\Dossier\ViewModel;
+
+use Mockery;
+use Mockery\MockInterface;
+use Shared\Domain\Publication\Dossier\Type\Covenant\Covenant;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecision;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecisionRepository;
+use Shared\Domain\Publication\Dossier\ViewModel\DossierNotificationsFactory;
+use Shared\Tests\Unit\UnitTestCase;
+
+class DossierNotificationsFactoryTest extends UnitTestCase
+{
+    private WooDecisionRepository&MockInterface $wooDecisionRepository;
+    private DossierNotificationsFactory $factory;
+
+    protected function setUp(): void
+    {
+        $this->wooDecisionRepository = Mockery::mock(WooDecisionRepository::class);
+        $this->factory = new DossierNotificationsFactory(
+            $this->wooDecisionRepository,
+        );
+    }
+
+    public function testMakeForWooDecision(): void
+    {
+        $wooDecision = Mockery::mock(WooDecision::class);
+        $wooDecision->expects('isCompleted')->andReturnFalse();
+
+        $this->wooDecisionRepository
+            ->expects('getNotificationCounts')
+            ->with($wooDecision)
+            ->andReturn([
+                'missing_uploads' => 2,
+                'suspended' => 3,
+                'withdrawn' => 4,
+            ]);
+
+        $result = $this->factory->make($wooDecision);
+
+        $this->assertMatchesSnapshot($result);
+    }
+
+    public function testMakeForIncompleteCovenant(): void
+    {
+        $covenant = Mockery::mock(Covenant::class);
+        $covenant->expects('isCompleted')->andReturnFalse();
+
+        $result = $this->factory->make($covenant);
+
+        $this->assertMatchesSnapshot($result);
+    }
+
+    public function testMakeForCompletedCovenant(): void
+    {
+        $covenant = Mockery::mock(Covenant::class);
+        $covenant->expects('isCompleted')->andReturnTrue();
+
+        $result = $this->factory->make($covenant);
+
+        $this->assertMatchesSnapshot($result);
+    }
+}

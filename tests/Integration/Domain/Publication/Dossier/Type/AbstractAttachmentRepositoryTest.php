@@ -1,0 +1,163 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Integration\Domain\Publication\Dossier\Type;
+
+use Doctrine\Persistence\ManagerRegistry;
+use Shared\Domain\Publication\Attachment\Command\CreateAttachmentCommand;
+use Shared\Domain\Publication\Attachment\Repository\AbstractAttachmentRepository;
+use Shared\Domain\Publication\Dossier\Type\Covenant\CovenantAttachment;
+use Shared\Tests\Factory\Publication\Dossier\Type\Covenant\CovenantAttachmentFactory;
+use Shared\Tests\Factory\Publication\Dossier\Type\Covenant\CovenantFactory;
+use Shared\Tests\Integration\SharedWebTestCase;
+use Symfony\Component\Uid\Uuid;
+
+final class AbstractAttachmentRepositoryTest extends SharedWebTestCase
+{
+    private AbstractAttachmentRepository $attachmentRepository;
+
+    protected function setUp(): void
+    {
+        $managerRegistry = self::fromContainer(ManagerRegistry::class);
+
+        $this->attachmentRepository = new class($managerRegistry) extends AbstractAttachmentRepository {
+            public function __construct(ManagerRegistry $managerRegistry)
+            {
+                parent::__construct($managerRegistry, CovenantAttachment::class);
+            }
+        };
+    }
+
+    public function testSave(): void
+    {
+        $covenant = CovenantFactory::createOne();
+
+        $covenantAttachment = CovenantAttachmentFactory::new()
+            ->withoutPersisting()
+            ->createOne([
+                'dossier' => $covenant,
+            ]);
+
+        $this->attachmentRepository->save($covenantAttachment, true);
+
+        $result = $this->attachmentRepository->findOneForDossier($covenant->getId(), $covenantAttachment->getId());
+        self::assertEquals($covenantAttachment, $result);
+    }
+
+    public function testFindForDossierByPrefixAndNumberFindsMatch(): void
+    {
+        $covenant = CovenantFactory::createOne();
+
+        $covenantAttachment = CovenantAttachmentFactory::createOne([
+            'dossier' => $covenant,
+        ]);
+
+        $result = $this->attachmentRepository->findForDossierByPrefixAndDossierNumber(
+            $covenant->getDocumentPrefix(),
+            $covenant->getDossierNumber(),
+            $covenantAttachment->getId()->toRfc4122(),
+        );
+
+        self::assertNotNull($result);
+        self::assertEquals($covenantAttachment->getId(), $result->getId());
+    }
+
+    public function testFindForDossierByPrefixAndNumberMismatch(): void
+    {
+        $result = $this->attachmentRepository->findForDossierByPrefixAndDossierNumber(
+            'a non-existing document prefix',
+            'a non-existing dossier number',
+            $this->getFaker()->uuid(),
+        );
+
+        self::assertNull($result);
+    }
+
+    public function testRemove(): void
+    {
+        $dossier = CovenantFactory::createOne();
+        $attachment = CovenantAttachmentFactory::createOne([
+            'dossier' => $dossier,
+        ]);
+
+        $result = $this->attachmentRepository->findForDossierByPrefixAndDossierNumber(
+            $dossier->getDocumentPrefix(),
+            $dossier->getDossierNumber(),
+            $attachment->getId()->toRfc4122(),
+        );
+        self::assertNotNull($result);
+
+        $this->attachmentRepository->remove($result, true);
+
+        $result = $this->attachmentRepository->findForDossierByPrefixAndDossierNumber(
+            $dossier->getDocumentPrefix(),
+            $dossier->getDossierNumber(),
+            $attachment->getId()->toRfc4122(),
+        );
+        self::assertNull($result);
+    }
+
+    public function testFindOneOrNullForDossier(): void
+    {
+        $dossier = CovenantFactory::createOne();
+        $attachment = CovenantAttachmentFactory::createOne([
+            'dossier' => $dossier,
+        ]);
+
+        $result = $this->attachmentRepository->findOneOrNullForDossier(
+            $dossier->getId(),
+            $attachment->getId(),
+        );
+
+        self::assertNotNull($result);
+        self::assertEquals($attachment->getId(), $result->getId());
+
+        self::assertNull(
+            $this->attachmentRepository->findOneOrNullForDossier(
+                $dossier->getId(),
+                Uuid::v6(),
+            ),
+        );
+    }
+
+    public function testFindForDossierByPrefixAndNumberResultsNullOnDossierMismatch(): void
+    {
+        $dossier = CovenantFactory::createOne();
+        $attachment = CovenantAttachmentFactory::createOne([
+            'dossier' => $dossier,
+        ]);
+
+        $result = $this->attachmentRepository->findForDossierByPrefixAndDossierNumber(
+            $dossier->getDocumentPrefix(),
+            'MISMATCH',
+            $attachment->getId()->toRfc4122(),
+        );
+
+        self::assertNull($result);
+    }
+
+    public function testCreate(): void
+    {
+        $covenant = CovenantFactory::createOne();
+
+        $covenantAttachment = CovenantAttachmentFactory::new()->withoutPersisting()->createOne();
+
+        $createAttachmentCommand = new CreateAttachmentCommand(
+            dossierId: $covenant->getId(),
+            formalDate: $covenantAttachment->getFormalDate(),
+            internalReference: $covenantAttachment->getInternalReference(),
+            type: $covenantAttachment->getType(),
+            language: $covenantAttachment->getLanguage(),
+            grounds: $covenantAttachment->getGrounds(),
+            uploadFileReference: 'uploadFileReference',
+        );
+
+        $result = $this->attachmentRepository->create($covenant, $createAttachmentCommand);
+
+        self::assertEquals($covenant, $result->getDossier());
+        self::assertEquals($createAttachmentCommand->formalDate, $result->getFormalDate());
+        self::assertEquals($createAttachmentCommand->type, $result->getType());
+        self::assertEquals($createAttachmentCommand->language, $result->getLanguage());
+    }
+}

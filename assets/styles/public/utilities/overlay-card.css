@@ -1,0 +1,3 @@
+@utility woo-overlay-card {
+  @apply absolute bg-white border border-woo-gray-400 z-10;
+}

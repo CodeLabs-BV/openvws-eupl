@@ -1,0 +1,27 @@
+<div class="bhr-form-row">
+    <h2 class="bhr-label">{{ title }}</h2>
+    {{ form_errors(formField) }}
+    {% do formField.setRendered %}
+    <p class="bhr-form-help">{{ helpText }}</p>
+
+    <div data-e2e-name="main-document" {{ vue_component('GenericController', {
+        componentName: 'PublicationFiles',
+
+        canDelete: canDelete,
+        dateLabel: dateLabel | default(null),
+        dossierId: dossierId | default(null),
+        endpoint: endpoint,
+        e2eName: e2eName | default('main-document'),
+        fileLimits: fileLimits | default([]),
+        fileTypeOptions: documentTypes,
+        groundOptions: grounds,
+        hasNoticeNotPublic: hasNoticeNotPublic | default(false),
+        isMainDocument: true,
+        languageOptions: languages,
+        readableFileType: documentType,
+        uploadEndpoint: uploadEndpoint | default(null),
+        uploadGroupId: 'main-documents',
+    }) }}>
+        <div class="min-h-14"></div>
+    </div>
+</div>

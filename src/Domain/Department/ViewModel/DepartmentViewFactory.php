@@ -1,0 +1,41 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Domain\Department\ViewModel;
+
+use Shared\Domain\Department\Department as DepartmentEntity;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+
+use function array_map;
+
+readonly class DepartmentViewFactory
+{
+    public function __construct(
+        private UrlGeneratorInterface $urlGenerator,
+    ) {
+    }
+
+    public function make(DepartmentEntity $department): Department
+    {
+        return new Department(
+            name: $department->getName(),
+            tag: $department->getShortTag(),
+            url: $this->urlGenerator->generate('app_department_detail', ['slug' => $department->getSlug()]),
+        );
+    }
+
+    /**
+     * @param array<array-key,DepartmentEntity> $departments
+     *
+     * @return list<Department>
+     */
+    public function makeCollection(array $departments): array
+    {
+        /** @var list<Department> */
+        return array_map(
+            $this->make(...),
+            $departments,
+        );
+    }
+}

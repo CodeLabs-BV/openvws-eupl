@@ -1,0 +1,136 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Integration\Domain\Publication\Dossier\Type;
+
+use Doctrine\Persistence\ManagerRegistry;
+use Shared\Domain\Publication\Dossier\Type\AnnualReport\AnnualReportMainDocument;
+use Shared\Domain\Publication\MainDocument\AbstractMainDocumentRepository;
+use Shared\Domain\Publication\MainDocument\Command\CreateMainDocumentCommand;
+use Shared\Tests\Factory\Publication\Dossier\Type\AnnualReport\AnnualReportFactory;
+use Shared\Tests\Factory\Publication\Dossier\Type\AnnualReport\AnnualReportMainDocumentFactory;
+use Shared\Tests\Integration\SharedWebTestCase;
+use Symfony\Component\Uid\Uuid;
+
+final class AbstractMainDocumentRepositoryTest extends SharedWebTestCase
+{
+    private AbstractMainDocumentRepository $mainDocumentRepository;
+
+    protected function setUp(): void
+    {
+        $managerRegistry = self::fromContainer(ManagerRegistry::class);
+
+        $this->mainDocumentRepository = new class($managerRegistry) extends AbstractMainDocumentRepository {
+            public function __construct(ManagerRegistry $managerRegistry)
+            {
+                parent::__construct($managerRegistry, AnnualReportMainDocument::class);
+            }
+        };
+    }
+
+    public function testSave(): void
+    {
+        $dossier = AnnualReportFactory::createOne();
+
+        $document = AnnualReportMainDocumentFactory::createOne([
+            'dossier' => $dossier,
+        ]);
+
+        $this->mainDocumentRepository->save($document, true);
+
+        $result = $this->mainDocumentRepository->findOneByDossierId($dossier->getId());
+        self::assertEquals($document, $result);
+    }
+
+    public function testRemove(): void
+    {
+        $dossier = AnnualReportFactory::createOne();
+        AnnualReportMainDocumentFactory::createOne([
+            'dossier' => $dossier,
+        ]);
+
+        $result = $this->mainDocumentRepository->findForDossierByPrefixAndDossierNumber(
+            $dossier->getDocumentPrefix(),
+            $dossier->getDossierNumber(),
+        );
+        self::assertNotNull($result);
+
+        $this->mainDocumentRepository->remove($result, true);
+
+        $result = $this->mainDocumentRepository->findForDossierByPrefixAndDossierNumber(
+            $dossier->getDocumentPrefix(),
+            $dossier->getDossierNumber(),
+        );
+        self::assertNull($result);
+    }
+
+    public function testFindOneByDossierId(): void
+    {
+        $dossier = AnnualReportFactory::createOne();
+
+        $document = AnnualReportMainDocumentFactory::createOne([
+            'dossier' => $dossier,
+        ]);
+
+        self::assertEquals(
+            $document->getId(),
+            $this->mainDocumentRepository->findOneByDossierId($dossier->getId())?->getId(),
+        );
+
+        self::assertNull(
+            $this->mainDocumentRepository->findOneByDossierId(Uuid::v6()),
+        );
+    }
+
+    public function testFindForDossierByPrefixAndNumberFindsMatch(): void
+    {
+        $dossier = AnnualReportFactory::createOne();
+
+        $document = AnnualReportMainDocumentFactory::createOne([
+            'dossier' => $dossier,
+        ]);
+
+        $result = $this->mainDocumentRepository->findForDossierByPrefixAndDossierNumber(
+            $dossier->getDocumentPrefix(),
+            $dossier->getDossierNumber(),
+        );
+
+        self::assertNotNull($result);
+        self::assertEquals($document->getId(), $result->getId());
+    }
+
+    public function testFindForDossierByPrefixAndNumberMismatch(): void
+    {
+        $result = $this->mainDocumentRepository->findForDossierByPrefixAndDossierNumber(
+            'a non-existing document prefix',
+            'a non-existing dossier number',
+        );
+
+        self::assertNull($result);
+    }
+
+    public function testCreate(): void
+    {
+        $dossier = AnnualReportFactory::createOne();
+
+        $document = AnnualReportMainDocumentFactory::new()->withoutPersisting()->createOne();
+
+        $createMainDocumentCommand = new CreateMainDocumentCommand(
+            dossierId: $dossier->getId(),
+            formalDate: $document->getFormalDate(),
+            internalReference: $document->getInternalReference(),
+            type: $document->getType(),
+            language: $document->getLanguage(),
+            grounds: [],
+            uploadFileReference: 'uploadFileReference',
+        );
+
+        $result = $this->mainDocumentRepository->create($dossier, $createMainDocumentCommand);
+
+        self::assertEquals($dossier, $result->getDossier());
+        self::assertEquals($createMainDocumentCommand->formalDate, $result->getFormalDate());
+        self::assertEquals($createMainDocumentCommand->type, $result->getType());
+        self::assertEquals($createMainDocumentCommand->language, $result->getLanguage());
+    }
+}

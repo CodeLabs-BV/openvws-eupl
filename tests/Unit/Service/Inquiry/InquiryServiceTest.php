@@ -1,0 +1,296 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Service\Inquiry;
+
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\ORM\EntityManagerInterface;
+use Mockery;
+use Mockery\MockInterface;
+use ReflectionClass;
+use Shared\Domain\Ingest\IngestDispatcher;
+use Shared\Domain\Organisation\Organisation;
+use Shared\Domain\Publication\BatchDownload\BatchDownloadService;
+use Shared\Domain\Publication\Dossier\DossierStatus;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Document\Document;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Document\DocumentRepository;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Inquiry\Inquiry;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Inquiry\InquiryRepository;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecision;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecisionDispatcher;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecisionRepository;
+use Shared\Domain\Search\SearchDispatcher;
+use Shared\Service\HistoryService;
+use Shared\Service\Inquiry\DocumentInquiryNumbers;
+use Shared\Service\Inquiry\InquiryChangeset;
+use Shared\Service\Inquiry\InquiryNumbers;
+use Shared\Service\Inquiry\InquiryService;
+use Shared\Service\Storage\EntityStorageService;
+use Shared\Tests\Unit\UnitTestCase;
+use Symfony\Component\Uid\Uuid;
+use Symfony\Component\Uid\UuidV6;
+
+class InquiryServiceTest extends UnitTestCase
+{
+    private EntityManagerInterface&MockInterface $entityManager;
+    private BatchDownloadService&MockInterface $batchDownloadService;
+    private MockInterface&EntityStorageService $entityStorageService;
+    private HistoryService&MockInterface $historyService;
+    private InquiryService $inquiryService;
+    private Organisation&MockInterface $organisation;
+    private InquiryRepository&MockInterface $inquiryRepo;
+    private DocumentRepository&MockInterface $documentRepo;
+    private WooDecision&MockInterface $dossier;
+    private SearchDispatcher&MockInterface $searchDispatcher;
+    private WooDecisionDispatcher&MockInterface $wooDecisionDispatcher;
+    private IngestDispatcher&MockInterface $ingestDispatcher;
+    private UuidV6 $dossierId;
+
+    protected function setUp(): void
+    {
+        $this->entityManager = Mockery::mock(EntityManagerInterface::class);
+        $this->batchDownloadService = Mockery::mock(BatchDownloadService::class);
+        $this->entityStorageService = Mockery::mock(EntityStorageService::class);
+        $this->historyService = Mockery::mock(HistoryService::class);
+        $this->searchDispatcher = Mockery::mock(SearchDispatcher::class);
+        $this->wooDecisionDispatcher = Mockery::mock(WooDecisionDispatcher::class);
+        $this->ingestDispatcher = Mockery::mock(IngestDispatcher::class);
+
+        $this->inquiryService = new InquiryService(
+            $this->entityManager,
+            $this->batchDownloadService,
+            $this->entityStorageService,
+            $this->historyService,
+            $this->searchDispatcher,
+            $this->wooDecisionDispatcher,
+            $this->ingestDispatcher,
+        );
+
+        parent::setUp();
+    }
+
+    public function testUpdateInquiryLinks(): void
+    {
+        $this->historyService->expects('addInquiryEntry')->times(2)->andReturnNull();
+
+        $this->dossierId = Uuid::v6();
+        $this->dossier = Mockery::mock(WooDecision::class);
+        $this->dossier->expects('getId')->times(3)->andReturn($this->dossierId);
+        $this->dossier->expects('getStatus')->andReturn(DossierStatus::PUBLISHED);
+
+        $this->organisation = Mockery::mock(Organisation::class);
+
+        $this->inquiryRepo = Mockery::mock(InquiryRepository::class);
+        $this->documentRepo = Mockery::mock(DocumentRepository::class);
+
+        $this->entityManager->expects('getRepository')->with(Inquiry::class)->andReturn($this->inquiryRepo);
+        $this->entityManager->expects('getRepository')->times(3)->with(Document::class)->andReturn($this->documentRepo);
+
+        $addDoc1Id = Uuid::v6();
+        $addDoc2Id = Uuid::v6();
+        $removeDocId = Uuid::v6();
+
+        $addDoc1 = Mockery::mock(Document::class);
+        $addDoc1->expects('addInquiry');
+        $addDoc1->expects('getDossiers')->andReturn(new ArrayCollection([$this->dossier]));
+        $addDoc1->expects('getId')->andReturn($addDoc1Id);
+
+        $newDossierId = Uuid::v6();
+        $newDossier = Mockery::mock(WooDecision::class);
+        $newDossier->expects('getStatus')->andReturn(DossierStatus::PUBLISHED);
+        $newDossier->expects('getId')->times(3)->andReturn($newDossierId);
+
+        $addDoc2 = Mockery::mock(Document::class);
+        $addDoc2->expects('addInquiry');
+        $addDoc2->expects('getDossiers')->andReturn(new ArrayCollection([$this->dossier]));
+        $addDoc2->expects('getId')->andReturn($addDoc2Id);
+
+        $removeDoc = Mockery::mock(Document::class);
+        // Document removal for inquiries is disabled as part of #2868:
+        // $removeDoc->expects('removeInquiry');
+        $removeDoc->expects('getId')->andReturn($removeDocId);
+
+        $inquiryNumber = 'case-123';
+        $inquiryId = Uuid::v6();
+
+        $this->historyService
+            ->expects('addDossierEntry')
+            ->with($this->dossier->getId(), 'dossier_inquiry_added', ['count' => 1, 'inquiryNumbers' => $inquiryNumber]);
+        $this->historyService
+            ->expects('addDossierEntry')
+            ->with($newDossier->getId(), 'dossier_inquiry_added', ['count' => 1, 'inquiryNumbers' => $inquiryNumber]);
+        $this->inquiryRepo->expects('findOneBy')->with(['organisation' => $this->organisation, 'inquiryNumber' => $inquiryNumber])->andReturnNull();
+
+        $this->documentRepo->expects('find')->with($addDoc1Id)->andReturn($addDoc1);
+        $this->documentRepo->expects('find')->with($addDoc2Id)->andReturn($addDoc2);
+        $this->documentRepo->expects('find')->with($removeDocId)->andReturn($removeDoc);
+
+        $this->entityManager->expects('persist')->with(Mockery::on(
+            function (Inquiry $inquiry) use ($inquiryNumber, $inquiryId): bool {
+                self::assertEquals($this->organisation, $inquiry->getOrganisation());
+                self::assertEquals($inquiryNumber, $inquiry->getInquiryNumber());
+
+                // Set fake ID on doctrine entity
+                $reflectionClass = new ReflectionClass($inquiry::class);
+                $idProperty = $reflectionClass->getProperty('id');
+                $idProperty->setValue($inquiry, $inquiryId);
+
+                return true;
+            },
+        ));
+
+        $dossierRepo = Mockery::mock(WooDecisionRepository::class);
+        $dossierRepo->expects('find')->with($newDossierId)->andReturn($newDossier);
+
+        $this->entityManager->expects('persist')->with(Mockery::type(Inquiry::class));
+        $this->entityManager->expects('flush')->times(2);
+        $this->entityManager->expects('getRepository')->with(WooDecision::class)->andReturn($dossierRepo);
+
+        $this->wooDecisionDispatcher->expects('dispatchGenerateInquiryInventoryCommand')->with($inquiryId);
+
+        $this->ingestDispatcher->expects('dispatchIngestMetadataOnlyCommand')->with($addDoc1Id, Document::class, false);
+        $this->ingestDispatcher->expects('dispatchIngestMetadataOnlyCommand')->with($addDoc2Id, Document::class, false);
+        $this->ingestDispatcher->expects('dispatchIngestMetadataOnlyCommand')->with($removeDocId, Document::class, false);
+
+        $this->searchDispatcher->expects('dispatchIndexDossierCommand')->with($this->dossierId);
+        $this->searchDispatcher->expects('dispatchIndexDossierCommand')->with($newDossierId);
+
+        $this->inquiryService->updateInquiryLinks($this->organisation, $inquiryNumber, [$addDoc1Id, $addDoc2Id], [$removeDocId], [$newDossierId]);
+    }
+
+    public function testUpdateInquiryLinksWithNewDossier(): void
+    {
+        $this->historyService->expects('addInquiryEntry')->times(2)->andReturnNull();
+
+        $this->organisation = Mockery::mock(Organisation::class);
+
+        $this->inquiryRepo = Mockery::mock(InquiryRepository::class);
+        $this->documentRepo = Mockery::mock(DocumentRepository::class);
+
+        $this->entityManager->expects('getRepository')->with(Inquiry::class)->andReturn($this->inquiryRepo);
+        $this->entityManager->expects('getRepository')->times(3)->with(Document::class)->andReturn($this->documentRepo);
+
+        $this->dossierId = Uuid::v6();
+        $this->dossier = Mockery::mock(WooDecision::class);
+
+        $newDossierId = Uuid::v6();
+        $newDossier = Mockery::mock(WooDecision::class);
+        $newDossier->expects('getId')->times(2)->andReturn($newDossierId);
+        $newDossier->expects('getStatus')->andReturn(DossierStatus::PUBLISHED);
+
+        $addDoc1Id = Uuid::v6();
+        $addDoc2Id = Uuid::v6();
+        $removeDocId = Uuid::v6();
+
+        $addDoc1 = Mockery::mock(Document::class);
+        $addDoc1->expects('getDossiers')->andReturn(new ArrayCollection([$this->dossier]));
+        $addDoc1->expects('getId')->andReturn($addDoc1Id);
+
+        $addDoc2 = Mockery::mock(Document::class);
+        $addDoc2->expects('getDossiers')->andReturn(new ArrayCollection([$this->dossier]));
+        $addDoc2->expects('getId')->andReturn($addDoc2Id);
+
+        $removeDoc = Mockery::mock(Document::class);
+        $removeDoc->expects('getId')->andReturn($removeDocId);
+
+        $inquiryNumber = 'case-123';
+        $inquiryId = Uuid::v6();
+        $inquiry = Mockery::mock(Inquiry::class);
+        $inquiry->expects('addDocument')->with($addDoc1);
+        $inquiry->expects('addDocument')->with($addDoc2);
+
+        // Document removal for inquiries is disabled as part of #2868:
+        // $inquiry->expects('removeDocument')->with($removeDoc);
+        $inquiry->expects('addDossier')->with($newDossier);
+        $inquiry->expects('getDossiers')->times(3)->andReturn(new ArrayCollection([$this->dossier]));
+        $inquiry->expects('getId')->andReturn($inquiryId);
+
+        $this->historyService->expects('addDossierEntry');
+
+        $this->inquiryRepo->expects('findOneBy')
+            ->with(['organisation' => $this->organisation, 'inquiryNumber' => $inquiryNumber])
+            ->andReturn($inquiry);
+
+        $this->documentRepo->expects('find')->with($addDoc1Id)->andReturn($addDoc1);
+        $this->documentRepo->expects('find')->with($addDoc2Id)->andReturn($addDoc2);
+        $this->documentRepo->expects('find')->with($removeDocId)->andReturn($removeDoc);
+
+        $dossierRepo = Mockery::mock(WooDecisionRepository::class);
+        $dossierRepo->expects('find')->with($newDossierId)->andReturn($newDossier);
+
+        $this->entityManager->expects('getRepository')->with(WooDecision::class)->andReturn($dossierRepo);
+        $this->entityManager->expects('persist')->with($inquiry);
+        $this->entityManager->expects('flush');
+
+        $this->wooDecisionDispatcher->expects('dispatchGenerateInquiryInventoryCommand')->with($inquiryId);
+
+        $this->ingestDispatcher->expects('dispatchIngestMetadataOnlyCommand')->with($addDoc1Id, Document::class, false);
+        $this->ingestDispatcher->expects('dispatchIngestMetadataOnlyCommand')->with($addDoc2Id, Document::class, false);
+        $this->ingestDispatcher->expects('dispatchIngestMetadataOnlyCommand')->with($removeDocId, Document::class, false);
+
+        $this->searchDispatcher->expects('dispatchIndexDossierCommand')->with($newDossierId);
+
+        $this->inquiryService->updateInquiryLinks($this->organisation, $inquiryNumber, [$addDoc1Id, $addDoc2Id], [$removeDocId], [$newDossierId]);
+    }
+
+    public function testApplyChangesetAsync(): void
+    {
+        $organisationId = Uuid::v6();
+        $organisation = Mockery::mock(Organisation::class);
+        $organisation->expects('getId')->times(4)->andReturn($organisationId);
+        $changeset = new InquiryChangeset($organisation);
+
+        // Has no linked inquiries yet, so should be linked twice
+        $docId123 = Uuid::v6();
+        $changeset->updateInquiryNumbersForDocument(
+            new DocumentInquiryNumbers($docId123, InquiryNumbers::empty()),
+            new InquiryNumbers(['case-1', 'case-2']),
+        );
+
+        // Has two new inquiry links (case-1 and case-3), one unmodified/existing (case-2) and one removed ('case-4')
+        $docId456 = Uuid::v6();
+        $changeset->updateInquiryNumbersForDocument(
+            new DocumentInquiryNumbers($docId456, new InquiryNumbers(['case-2', 'case-4'])),
+            new InquiryNumbers(['case-1', 'case-2', 'case-3']),
+        );
+
+        // Docs 123 and 456 should be added to case-1
+        $this->wooDecisionDispatcher->expects('dispatchUpdateInquiryLinksCommand')->with(
+            $organisationId,
+            'case-1',
+            [$docId123, $docId456],
+            [],
+            [],
+        );
+
+        // Doc 123 should be added to case-2
+        $this->wooDecisionDispatcher->expects('dispatchUpdateInquiryLinksCommand')->with(
+            $organisationId,
+            'case-2',
+            [$docId123],
+            [],
+            [],
+        );
+
+        // Doc 456 should be removed from case-4
+        $this->wooDecisionDispatcher->expects('dispatchUpdateInquiryLinksCommand')->with(
+            $organisationId,
+            'case-4',
+            [],
+            [$docId456],
+            [],
+        );
+
+        // Doc 456 should be added to case-3
+        $this->wooDecisionDispatcher->expects('dispatchUpdateInquiryLinksCommand')->with(
+            $organisationId,
+            'case-3',
+            [$docId456],
+            [],
+            [],
+        );
+
+        $this->inquiryService->applyChangesetAsync($changeset);
+    }
+}

@@ -1,0 +1,41 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Domain\Publication\Dossier\ViewModel;
+
+use Shared\Domain\Publication\Dossier\AbstractDossier;
+use Webmozart\Assert\Assert;
+
+readonly class CommonDossierPropertiesViewFactory
+{
+    public function __construct(
+        private DepartmentViewFactory $departmentViewFactory,
+        private SubjectViewFactory $subjectViewFactory,
+    ) {
+    }
+
+    public function make(AbstractDossier $dossier): CommonDossierProperties
+    {
+        $title = $dossier->getTitle();
+
+        $publicationDate = $dossier->getPublicationDate();
+        Assert::notNull($publicationDate);
+
+        $mainDepartment = $dossier->getDepartments()->first();
+        Assert::notFalse($mainDepartment);
+
+        return new CommonDossierProperties(
+            dossierId: $dossier->getId()->toRfc4122(),
+            dossierNumber: $dossier->getDossierNumber(),
+            documentPrefix: $dossier->getDocumentPrefix(),
+            isPreview: $dossier->getStatus()->isPreview(),
+            title: $title,
+            publicationDate: $publicationDate,
+            mainDepartment: $this->departmentViewFactory->make($mainDepartment),
+            summary: $dossier->getSummary(),
+            type: $dossier->getType(),
+            subject: $this->subjectViewFactory->getSubjectForDossier($dossier),
+        );
+    }
+}

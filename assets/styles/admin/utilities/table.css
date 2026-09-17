@@ -1,0 +1,39 @@
+@utility bhr-table {
+  @apply w-full;
+
+  & th {
+    @apply font-normal text-left whitespace-nowrap;
+
+    &[scope="col"] {
+      @apply bg-bhr-gray-100 text-bhr-gray-900;
+    }
+
+    &[scope="row"] {
+      @apply text-bhr-gray-700;
+    }
+  }
+
+  & td,
+  & th {
+    @apply py-2 px-4;
+  }
+
+  & tr {
+    @apply border-b border-bhr-gray-100;
+  }
+}
+
+
+@utility bhr-fill-cell {
+  @apply block -my-2 -mx-4 py-2 px-4;
+}
+
+@utility bhr-clamp {
+  @apply line-clamp-2
+        max-w-md;
+}
+
+@utility bhr-responsive-table {
+  @apply overflow-x-auto;
+  @apply overflow-y-hidden; /* This doesn't do any harm (since there's no fixed height set) and prevents a bug with a scrollbar appearing on the right side of the table */
+}

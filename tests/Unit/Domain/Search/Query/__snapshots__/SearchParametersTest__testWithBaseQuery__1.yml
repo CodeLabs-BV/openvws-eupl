@@ -1,0 +1,44 @@
+queryString: true
+activeFacets: true
+queryParameters:
+    type: dossier
+    q: foo
+    dci: [doc1, doc2]
+    dsi: [doc1, doc2]
+    sort: _score
+    sortorder: desc
+    page: 13
+facetInputs:
+    dci: { key: { paramName: dci, name: INQUIRY_DOCUMENTS, value: dci }, field: { name: INQUIRY_IDS, value: inquiry_ids }, requestParameter: dci, filter: null, aggregationStrategy: null }
+    dsi: { key: { paramName: dsi, name: INQUIRY_DOSSIERS, value: dsi }, field: { name: INQUIRY_IDS, value: inquiry_ids }, requestParameter: dsi, filter: null, aggregationStrategy: null }
+operator:
+    name: AND
+    value: and
+limit: 0
+offset: 13
+pagination: true
+aggregations: true
+query: foo
+searchType:
+    dossier: true
+    document: false
+    all: false
+    notAll: true
+    name: DOSSIER
+    value: dossier
+sortField:
+    name: SCORE
+    value: _score
+sortOrder:
+    name: DESC
+    value: desc
+baseQueryConditions: {}
+applicationId:
+    accessibleDossierStatuses: [{ new: false, concept: false, scheduled: false, preview: true, published: false, newOrConcept: false, conceptOrScheduled: false, publiclyAvailable: true, publiclyAvailableOrScheduled: true, deleted: false, notDeleted: true, name: PREVIEW, value: preview }, { new: false, concept: false, scheduled: false, preview: false, published: true, newOrConcept: false, conceptOrScheduled: false, publiclyAvailable: true, publiclyAvailableOrScheduled: true, deleted: false, notDeleted: true, name: PUBLISHED, value: published }]
+    admin: false
+    public: true
+    publicationApi: false
+    worker: false
+    shared: false
+    name: PUBLIC
+    value: public

@@ -1,0 +1,12 @@
+.dockerignore
+.github
+docs
+!docs/requirements.txt
+auth.json
+.npmrc.auth
+var
+vendor
+node_modules
+Taskfile*.yml
+compose.yml
+compose.*.yml

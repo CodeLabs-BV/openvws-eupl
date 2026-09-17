@@ -1,0 +1,286 @@
+{
+    "name": "minvws/nl-rdo-woo-web-private",
+    "description": "Source code for the (new) Woo Publication Platform used by the Ministry of Health, Welfare and Sport",
+    "type": "project",
+    "license": "EUPL-1.2",
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "require": {
+        "php": "^8.4.1",
+        "ext-ctype": "*",
+        "ext-fileinfo": "*",
+        "ext-iconv": "*",
+        "ext-intl": "*",
+        "ext-xmlwriter": "*",
+        "ext-zip": "*",
+        "api-platform/doctrine-orm": "^4.1",
+        "api-platform/symfony": "^4.1",
+        "aws/aws-sdk-php": "^3.279",
+        "doctrine/doctrine-bundle": "^3.0.0",
+        "doctrine/doctrine-fixtures-bundle": "^4.0",
+        "doctrine/doctrine-migrations-bundle": "^4.0.0",
+        "doctrine/orm": "^3.0",
+        "elasticsearch/elasticsearch": "^9.0",
+        "endroid/qr-code": "^6.0.5",
+        "erichard/elasticsearch-query-builder": "^3.0.3-beta",
+        "gemorroj/archive7z": "^5.6",
+        "guzzlehttp/psr7": "^2.7",
+        "huluti/breadcrumbs-bundle": "^1.6",
+        "indiehd/filename-sanitizer": "^0.1.0",
+        "knplabs/knp-paginator-bundle": "^6.2",
+        "league/commonmark": "^2.7",
+        "league/flysystem": "^3.0",
+        "league/flysystem-aws-s3-v3": "^3.15",
+        "league/flysystem-bundle": "^3.1",
+        "league/mime-type-detection": "^1.16",
+        "maennchen/zipstream-php": "^3.1",
+        "martin-georgiev/postgresql-for-doctrine": "^4.0.0",
+        "minvws/audit-logger": "^1.1.0",
+        "minvws/audit-logger-bundle": "^1.1.0",
+        "minvws/horsebattery": "^2.0",
+        "minvws/icore-php-typearray": "^1.0.0",
+        "nesbot/carbon": "^3.7",
+        "nikic/php-parser": "^5.0",
+        "nyholm/psr7": "^1.8",
+        "paragonie/halite": "^5.1",
+        "pentatrion/vite-bundle": "^8.0",
+        "php-amqplib/rabbitmq-bundle": "^2.11",
+        "phpdocumentor/reflection-docblock": "^6",
+        "phpoffice/phpspreadsheet": "^5.0.0",
+        "predis/predis": "^3.4",
+        "presta/sitemap-bundle": "^4.0.0",
+        "psr/http-message": "^2.0",
+        "scheb/2fa-backup-code": "^8.3.0",
+        "scheb/2fa-bundle": "^8.3.0",
+        "scheb/2fa-email": "^8.3.0",
+        "scheb/2fa-totp": "^8.3.0",
+        "snc/redis-bundle": "^4.6",
+        "symfony/amqp-messenger": "*",
+        "symfony/asset": "^8.1",
+        "symfony/cache": "*",
+        "symfony/clock": "^8.1",
+        "symfony/config": "*",
+        "symfony/console": "*",
+        "symfony/dependency-injection": "*",
+        "symfony/dotenv": "^8.1",
+        "symfony/error-handler": "*",
+        "symfony/event-dispatcher": "*",
+        "symfony/expression-language": "^8.1",
+        "symfony/filesystem": "^8.1",
+        "symfony/finder": "^8.1",
+        "symfony/flex": "^2",
+        "symfony/form": "*",
+        "symfony/framework-bundle": "*",
+        "symfony/http-client": "*",
+        "symfony/http-foundation": "*",
+        "symfony/intl": "^8.1",
+        "symfony/mailer": "*",
+        "symfony/messenger": "*",
+        "symfony/mime": "*",
+        "symfony/monolog-bundle": "^4.0.0",
+        "symfony/notifier": "^8.1",
+        "symfony/password-hasher": "^8.1",
+        "symfony/process": "^8.1",
+        "symfony/property-access": "*",
+        "symfony/property-info": "*",
+        "symfony/psr-http-message-bridge": "^8.1",
+        "symfony/rate-limiter": "^8.1",
+        "symfony/routing": "*",
+        "symfony/runtime": "*",
+        "symfony/security-bundle": "*",
+        "symfony/security-core": "*",
+        "symfony/security-csrf": "*",
+        "symfony/security-http": "*",
+        "symfony/serializer": "*",
+        "symfony/stimulus-bundle": "^3.0",
+        "symfony/stopwatch": "^8.1",
+        "symfony/string": "^8.1",
+        "symfony/translation": "*",
+        "symfony/twig-bundle": "*",
+        "symfony/type-info": "^8.1",
+        "symfony/uid": "^8.1",
+        "symfony/ux-twig-component": "^3.0",
+        "symfony/ux-vue": "^3.0",
+        "symfony/validator": "*",
+        "symfony/web-link": "^8.1",
+        "symfony/workflow": "^8.1",
+        "symfony/yaml": "^8.1",
+        "twig/extra-bundle": "^2.12|^3.0",
+        "twig/intl-extra": "^3.7",
+        "twig/string-extra": "^3.6",
+        "twig/twig": "^3.14.0",
+        "webmozart/assert": "^2.0",
+        "xenolope/quahog": "^3.0"
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true,
+            "php-http/discovery": true,
+            "phpstan/extension-installer": true,
+            "symfony/flex": true,
+            "symfony/runtime": true
+        },
+        "sort-packages": true
+    },
+    "autoload": {
+        "psr-4": {
+            "Shared\\": "src/",
+            "Admin\\": "apps/admin/src/",
+            "Public\\": "apps/public/src/",
+            "PublicationApi\\": "apps/publication_api/src/",
+            "Worker\\": "apps/worker/src/",
+            "WooMinVWS\\": "tenants/minvws/src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Shared\\Tests\\": "tests/",
+            "Admin\\Tests\\": "apps/admin/tests/",
+            "Public\\Tests\\": "apps/public/tests/",
+            "PublicationApi\\Tests\\": "apps/publication_api/tests/",
+            "Worker\\Tests\\": "apps/worker/tests/",
+            "WooMinVWS\\Tests\\": "tenants/minvws/tests/",
+            "Utils\\PHPStan\\": "utils/src/PHPStan/",
+            "Utils\\Rector\\": "utils/src/Rector/",
+            "Utils\\Tests\\": "utils/tests"
+        }
+    },
+    "replace": {
+        "symfony/polyfill-ctype": "*",
+        "symfony/polyfill-iconv": "*",
+        "symfony/polyfill-php72": "*",
+        "symfony/polyfill-php73": "*",
+        "symfony/polyfill-php74": "*",
+        "symfony/polyfill-php80": "*",
+        "symfony/polyfill-php81": "*",
+        "symfony/polyfill-php82": "*"
+    },
+    "scripts": {
+        "pre-autoload-dump": "Aws\\Script\\Composer\\Composer::removeUnusedServices",
+        "auto-scripts": {
+            "XDEBUG_MODE=off bin/console cache:clear --tenant=minvws --id=shared": "script",
+            "XDEBUG_MODE=off bin/console cache:clear --tenant=minvws --id=admin": "script",
+            "XDEBUG_MODE=off bin/console cache:clear --tenant=minvws --id=public": "script",
+            "XDEBUG_MODE=off bin/console cache:clear --tenant=minvws --id=publication_api": "script",
+            "XDEBUG_MODE=off bin/console cache:clear --tenant=minvws --id=worker": "script",
+            "XDEBUG_MODE=off bin/console assets:install %PUBLIC_DIR% --tenant=minvws --id=admin": "script",
+            "XDEBUG_MODE=off bin/console assets:install %PUBLIC_DIR% --tenant=minvws --id=public": "script"
+        },
+        "post-install-cmd": [
+            "@auto-scripts",
+            "@openapi:export"
+        ],
+        "post-update-cmd": [
+            "@auto-scripts",
+            "@openapi:export"
+        ],
+        "checkstyle": [
+            "XDEBUG_MODE=off phpcs",
+            "XDEBUG_MODE=off php-cs-fixer fix --dry-run --diff --verbose"
+        ],
+        "fixstyle": [
+            "XDEBUG_MODE=off phpcbf",
+            "XDEBUG_MODE=off php-cs-fixer fix --diff"
+        ],
+        "checktype": [
+            "XDEBUG_MODE=off bin/console --tenant=minvws cache:warmup --no-optional-warmers",
+            "XDEBUG_MODE=off phpstan analyse --memory-limit=-1"
+        ],
+        "update-type-baseline": [
+            "XDEBUG_MODE=off bin/console --tenant=minvws cache:warmup --no-optional-warmers",
+            "XDEBUG_MODE=off phpstan --generate-baseline"
+        ],
+        "checktranslations": "XDEBUG_MODE=off bin/console --tenant=minvws lint:yaml translations",
+        "checktemplates": [
+            "XDEBUG_MODE=off APP_DEBUG=false php bin/console --tenant=minvws cache:clear",
+            "XDEBUG_MODE=off APP_DEBUG=false php bin/console --tenant=minvws lint:twig templates"
+        ],
+        "checkall": [
+            "@checkstyle",
+            "@checktype",
+            "@checkarc",
+            "@checktranslations",
+            "@checktemplates",
+            "@test",
+            "composer audit",
+            "@rector-preview"
+        ],
+        "test": [
+            "Composer\\Config::disableProcessTimeout",
+            "XDEBUG_MODE=off CREATE_SNAPSHOTS=false phpunit"
+        ],
+        "openapi:export": [
+            "XDEBUG_MODE=off bin/console --tenant=minvws --id=publication_api api:openapi:export --output public/api/publication/v1/openapi.json",
+            "XDEBUG_MODE=off bin/console --tenant=minvws --id=publication_api api:openapi:export --output public/api/publication/v1/openapi.yaml --yaml",
+            "XDEBUG_MODE=off bin/console --tenant=minvws --id=admin api:openapi:export --output public/api/admin/openapi.json",
+            "XDEBUG_MODE=off bin/console --tenant=minvws --id=admin api:openapi:export --output public/api/admin/openapi.yaml --yaml"
+        ],
+        "test-report": [
+            "Composer\\Config::disableProcessTimeout",
+            "XDEBUG_MODE=off CREATE_SNAPSHOTS=false php -dpcov.enabled=1 -dpcov.directory=. vendor/bin/phpunit --coverage-text --coverage-html coverage/html"
+        ],
+        "update-test-snapshots": "XDEBUG_MODE=off UPDATE_SNAPSHOTS=true phpunit",
+        "rector": "rector",
+        "rector-preview": "rector --dry-run",
+        "checkarc": "phparkitect check"
+    },
+    "scripts-descriptions": {
+        "checkstyle": "Check code style using php_codesniffer and php-cs-fixer",
+        "fixstyle": "Fix code style using php_codesniffer and php-cs-fixer",
+        "checktype": "Check code type using PHPStan",
+        "update-type-baseline": "Update PHPStan baseline",
+        "checktranslations": "Run YAML linting on translation files",
+        "checktemplates": "Run Twig linting on templates",
+        "checkall": "Run all checks including test",
+        "test": "Run PHPUnit tests",
+        "test-report": "Run PHPUnit tests with coverage report",
+        "update-test-snapshots": "Update PHPUnit snapshots",
+        "rector": "Run Rector on the code base",
+        "rector-preview": "Preview Rector changes on the code base",
+        "checkarc": "Check architecture rules using PHPArkitect"
+    },
+    "conflict": {
+        "doctrine/orm": "3.6.8",
+        "symfony/symfony": "*"
+    },
+    "extra": {
+        "symfony": {
+            "allow-contrib": false,
+            "require": "7.4.*"
+        },
+        "aws/aws-sdk-php": [
+            "S3"
+        ]
+    },
+    "require-dev": {
+        "dama/doctrine-test-bundle": "^8.2",
+        "dg/bypass-finals": "^1.5",
+        "fakerphp/faker": "^1.21",
+        "friendsofphp/php-cs-fixer": "^3.91.2",
+        "justinrainbow/json-schema": "^6.8",
+        "league/flysystem-memory": "^3.0",
+        "mikey179/vfsstream": "^1.6",
+        "mockery/mockery": "^1.6.12",
+        "phparkitect/phparkitect": "^1.0.0",
+        "phpcompatibility/php-compatibility": "^10.0.0-alpha1",
+        "phpstan/extension-installer": "^1.4",
+        "phpstan/phpstan": "^2.0",
+        "phpstan/phpstan-deprecation-rules": "^2.0",
+        "phpstan/phpstan-doctrine": "^2.0",
+        "phpstan/phpstan-mockery": "^2.0",
+        "phpstan/phpstan-symfony": "^2.0",
+        "phpstan/phpstan-webmozart-assert": "^2.0",
+        "phpunit/phpunit": "^13.0",
+        "rector/rector": "^2.0",
+        "slevomat/coding-standard": "^8.25",
+        "spatie/phpunit-snapshot-assertions": "^5.1",
+        "squizlabs/php_codesniffer": "^4.0",
+        "swisnl/phpstan-faker": "^1.0",
+        "symfony/browser-kit": "^8.1",
+        "symfony/css-selector": "^8.1",
+        "symfony/debug-bundle": "*",
+        "symfony/maker-bundle": "^1.0",
+        "symfony/web-profiler-bundle": "*",
+        "zenstruck/foundry": "^2.0"
+    }
+}

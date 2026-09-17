@@ -1,0 +1,136 @@
+advice: advies
+request_for_advice: adviesaanvraag
+advisort_proposal: adviesvoorstel
+
+budget: begroting
+policy_note: beleidsnota
+decision_note: beslisnota
+annual_plan: jaarplan
+annual_report: jaarverslag
+geographic_map: kaart
+
+official_message: ambtsbericht
+evaluation_report: evaluatierapport
+inspection_report: inspectierapport
+research_report: onderzoeksrapport
+accountability_report: verantwoordingsrapport
+progress_report: voortgangsrapport
+
+term_agenda: termijnagenda
+
+decision_to_impose_a_fine: beschikking tot opleggen boete
+decision_to_impose_an_order_under_administrative_enforcement: beschikking tot opleggen last onder bestuursdwang
+decision_to_impose_an_order_subject_to_penalty: beschikking tot opleggen last onder dwangsom
+
+designation_decision: aanwijzingsbeschikking
+appointment_decision: benoemingsbeschikking
+concession: concessie
+recognition_decision: erkenningsbeschikking
+consent_decision: instemmingsbeschikking
+exemption_decision: ontheffingsbeschikking
+subsidy_decision: subsidiebeschikking
+permit: vergunning
+
+letter: brief
+brochure: brochure
+circular: circulaire
+news_item: nieuwsbericht
+organization_details: organisatiegegevens
+press_release: persbericht
+speech: toespraak
+official_form: formulier
+media_text: mediatekst
+
+covenant: convenant
+
+objection: bezwaarschrift
+complaint: klacht
+complaint_judgement: klachtoordeel
+exemption_request: ontheffingsaanvraag
+subsidy_application: subsidieaanvraag
+permit_application: vergunningaanvraag
+point_of_view: zienswijze
+
+actions: handelingen
+parliamentary_document: kamerstuk
+non_dossier_document: niet-dossierstuk
+
+parliamentary_question_with_answer: kamervraag met antwoord
+parliamentary_question_without_answer: kamervraag zonder antwoord
+motion: motie
+council_of_state_advice: advies Raad van State
+parliamentary_letter: Kamerbrief
+memorandum_of_reply: memorie van antwoord
+explanatory_memorandum: memorie van toelichting
+further_report: nader rapport
+further_memorandum_of_reply: nadere memorie van antwoord
+note_on_further_report: nota n.a.v. het nader verslag
+note_on_report: nota n.a.v. het verslag
+amendment_note: nota van wijziging
+legislative_proposal: voorstel van wet
+
+government_gazette: staatsblad
+staatscourant: staatscourant
+
+policy: beleidsregel
+plan: plan
+diplomatic_declaration: diplomatieke verklaring
+regulation: regeling
+directive: richtlijn
+
+agenda: agenda
+decision_list: besluitenlijst
+incoming_document: ingekomen stuk
+meeting_report: vergaderverslag
+
+decision_on_objection: beslissing op bezwaar
+judgement_on_wob_woo_request: beslissing op Wob-/Woo-verzoek
+wob_woo_request: Wob-/Woo-verzoek
+
+policy_document: "beleidsdocument"
+
+other: overig
+
+# Talen (TOOI) - vervangt de oude 'dutch' en 'english' sleutels
+nld: Nederlands
+bul: Bulgaars
+dan: Deens
+deu: Duits
+eng: Engels
+est: Estisch
+fin: Fins
+fra: Frans
+fry: Fries
+ell: Grieks
+hun: Hongaars
+gle: Iers
+ita: Italiaans
+hrv: Kroatisch
+lav: Lets
+lit: Litouws
+mlt: Maltees
+pap_aw: Papiamento
+pap_cw: Papiamentu
+pol: Pools
+por: Portugees
+ron: Roemeens
+slv: Sloveens
+slk: Slowaaks
+spa: Spaans
+ces: Tsjechisch
+swe: Zweeds
+
+branch.advice_document: "adviesdocument"
+branch.policy_document: "beleidsdocument"
+branch.report: "rapport"
+branch.decision_to_impose: "beschikking"
+branch.decision_to_impose_enforcement: "forcementbeschikking tot handhaving"
+branch.communications: "communicatie-uiting"
+branch.citizen_document: "document van burger"
+branch.parliamentary_document: "parlementair document"
+branch.parliamentary_question: "kamervraag"
+branch.publication_sheet: "publicatieblad"
+branch.regulation: "regelgeving"
+branch.meeting_document: "vergaderstuk"
+branch.woo_procedure: "Woo-procedure"
+branch.other: "overig"

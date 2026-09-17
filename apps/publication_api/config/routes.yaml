@@ -1,0 +1,4 @@
+api_platform:
+    resource: .
+    type: api_platform
+    prefix: !php/const PublicationApi\Domain\OpenApi\PublicationV1Api::API_PREFIX

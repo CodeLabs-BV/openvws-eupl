@@ -1,0 +1,16 @@
+<a class="inline-flex leading-tight py-1 sm:py-0.5 w-full group" href="{{ to }}">
+    <span class="grow">
+        <span class="flex text-woo-dark-blue-600">
+            <span class="mr-1"><twig:Public:Icon class="relative -top-px -ml-1" color="fill-current" name="chevron-right" size="20" /></span>
+            <span class="group-hover:underline group-focus:underline">
+                {% if prefix is not empty %}
+                <span class="font-bold">{{ prefix }}</span> {{ prefixSeparator }}
+                {% endif %}
+                {% block content %}{% endblock %}
+            </span>
+        </span>
+    </span>
+    {% if suffix is not empty %}
+    <span class="pt-0.5 ml-2 woo-muted text-sm">({{ suffix }})</span>
+    {% endif %}
+</a>

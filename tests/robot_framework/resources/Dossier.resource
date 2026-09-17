@@ -1,0 +1,270 @@
+*** Comments ***
+# robocop: off=no-suite-variable,line-too-long
+
+
+*** Settings ***
+Documentation       Resource file containing custom keywords for Decision Dossiers in the Balie.
+Library             DateTime
+Library             Browser
+Library             DebugLibrary
+Library             FakerLibrary
+Resource            Admin.resource
+Resource            Public.resource
+
+
+*** Variables ***
+${CURRENT_DATE}     ${EMPTY}
+${ENVIRONMENT}      ${EMPTY}
+
+
+*** Keywords ***
+Fill Out Basic Details
+  [Arguments]  ${date_from}=2021-12-01
+  ...  ${date_to}=2023-01-31
+  ...  ${type}=${EMPTY}
+  ...  ${department}=${EMPTY}
+  Generate Dossier Reference Number
+  Fill Text  id=details_title  Robot Admin ${DOSSIER_REFERENCE}
+  IF  '${type}' == 'disposition' or '${type}' == 'investigation-report' or '${type}' == 'complaint-judgement' or '${type}' == 'other-publication' or '${type}' == 'advice' or '${type}' == 'request-for-advice' or '${type}' == 'draft-decision'
+    Type Text  id=details_date  01012022
+  ELSE IF  '${type}' == 'annual-report'
+    Select Options By  id=details_year  index  5
+  ELSE
+    Select Options By  id=details_date_from  value  ${date_from}
+    Select Options By  id=details_date_to  value  ${date_to}
+  END
+  IF  '${department}' != '${EMPTY}'
+    Select Options By  //select[@name="details[departments][0]"]  text  ${department}
+  ELSE
+    Select Random Department
+  END
+  IF  '${type}' == 'woo-decision'
+    Check Checkbox  id=details_publication_reason_1
+  END
+  Select Random Subject
+  Fill Text  id=details_dossierNumber  robot-admin-${DOSSIER_REFERENCE}
+  Click Save And Continue
+  Assert No Input Errors
+
+Select Random Department
+  ${nr_of_departments} =  Wait Until Keyword Succeeds
+  ...  3s
+  ...  250ms
+  ...  Get Element Count
+  ...  //select[@name="details[departments][0]"]/option
+  ...  >
+  ...  0
+  ${max_index} =  Evaluate  max(0, ${nr_of_departments} - 1)
+  ${min_index} =  Evaluate  min(1, ${max_index})
+  ${random_index} =  Evaluate  # index 0 is a placeholder, skipped when possible
+  ...  random.randint(${min_index}, ${max_index})
+  Select Options By  //select[@name="details[departments][0]"]  index  ${random_index}
+
+Select Random Subject
+  [Documentation]  Excludes subjects created by the Pagination API suite (name prefix "PG-")
+  ...  from the random pool. Those subjects only exist for that suite's run; picking one here
+  ...  links it to a dossier, making the suite's teardown DELETE fail with 405 (subject in use)
+  ...  when tests run in parallel.
+  VAR  ${xpath_eligible_options} =
+  ...  //select[@name="details[subject]"]/option[not(starts-with(normalize-space(text()), 'PG-'))]
+  ${nr_of_subjects} =  Get Element Count  ${xpath_eligible_options}
+  ${max_index} =  Evaluate  max(0, ${nr_of_subjects} - 1)
+  ${min_index} =  Evaluate  min(1, ${max_index})
+  ${random_index} =  Evaluate  # index 0 is a placeholder, skipped when possible
+  ...  random.randint(${min_index}, ${max_index})
+  ${xpath_position} =  Evaluate  ${random_index} + 1
+  ${subject_name} =  Get Text  (${xpath_eligible_options})[${xpath_position}]
+  Select Options By  //select[@name="details[subject]"]  label  ${subject_name}
+
+Generate Dossier Reference Number
+  ${reference_number} =  Generate Random String  10  [NUMBERS][UPPER]
+  VAR  ${DOSSIER_REFERENCE} =  ${reference_number}  scope=suite
+  RETURN  ${DOSSIER_REFERENCE}
+
+Search For A Publication
+  [Documentation]  Clicks the link with matching text, if multiple are present it will fail.
+  ...  Retried as a whole so an indexing race (the dossier not being in Elasticsearch yet
+  ...  right after creation) triggers a fresh search instead of failing on the click alone.
+  [Arguments]  ${search_query}
+  Wait Until Keyword Succeeds  10x  3s  Search And Click Publication  ${search_query}
+
+Search And Click Publication
+  [Arguments]  ${search_query}
+  ${search_query_lowercase} =  Convert To Lower Case  ${search_query}
+  Type Text  //div[@data-e2e-name="dossier-search"]//input  ${search_query_lowercase}  delay=50 ms  clear=${TRUE}
+  Wait For Elements State
+  ...  //div[@data-e2e-name="search-previews-results"]//table[@data-e2e-name="table-dossier"]//a[contains(@href,'${search_query_lowercase}')]
+  ...  visible
+  ...  timeout=5s
+  Click
+  ...  //div[@data-e2e-name="search-previews-results"]//table[@data-e2e-name="table-dossier"]//a[contains(@href,'${search_query_lowercase}')]
+
+Verify Admin Search Results
+  [Arguments]  ${search_query}  ${expexted_nr_of_results}
+  ${search_query_lowercase} =  Convert To Lower Case  ${search_query}
+  Type Text  //div[@data-e2e-name="dossier-search"]//input  ${search_query_lowercase}  delay=50 ms  clear=${TRUE}
+  Get Element Count
+  ...  //div[@data-e2e-name="search-previews-results"]//tbody/tr
+  ...  should be
+  ...  ${expexted_nr_of_results}
+
+Click Documents Edit
+  Click  //*[@data-e2e-name="documents-section"]//*[@data-e2e-name="edit-link"]
+
+Documents Edit Button Should Not Exist
+  Get Element Count  //*[@data-e2e-name="documents-section"]//*[@data-e2e-name="edit-link"]  equal  0
+
+Create New Dossier
+  [Arguments]  ${dossier_type}
+  Click  //*[@data-e2e-name="create-dossier"]
+  Choose Dossier Type  ${dossier_type}
+
+Choose Dossier Type
+  [Documentation]  Check if there is an option to choose Convenant or Woo -- This is only shown when you have super-admin permissions.
+  ...  Also skips the test (instead of failing on a missing button) if the dossier type isn't
+  ...    offered at all in this environment, e.g. because it's hidden behind a disabled feature
+  ...    flag such as HAS_FEATURE_DRAFT_DECISION.
+  [Arguments]  ${dossier_type}=woo-decision
+  Skip If Dossier Type Unavailable  ${dossier_type}
+  Click  //*[@data-e2e-name="create-dossier-type-${dossier_type}"]
+
+Is Dossier Type Available
+  [Documentation]  Live-checks, on the already-open create-dossier page, whether the given
+  ...    dossier type can be created in this environment.
+  [Arguments]  ${dossier_type}
+  VAR  ${selector} =  //*[@data-e2e-name="create-dossier-type-${dossier_type}"]
+  ${is_available} =  Run Keyword And Return Status  Wait For Elements State  ${selector}  visible  timeout=3s
+  RETURN  ${is_available}
+
+Skip If Dossier Type Unavailable
+  [Documentation]  Skips (and navigates back to the dossier listing) if the given dossier type
+  ...    isn't offered in this environment, e.g. because it's hidden behind a disabled feature
+  ...    flag such as HAS_FEATURE_DRAFT_DECISION.
+  [Arguments]  ${dossier_type}
+  ${is_available} =  Is Dossier Type Available  ${dossier_type}
+  IF  not ${is_available}
+    Click Publications
+    Skip  Dossier type '${dossier_type}' is not offered in this environment (feature flag disabled)
+  END
+
+Skip Suite If Dossier Type Unavailable
+  [Documentation]  Call once from Suite Setup (while already on the dossier listing page) to
+  ...    skip the whole suite up front if the given dossier type isn't offered in this
+  ...    environment, instead of letting every test discover and skip the same thing on its own.
+  [Arguments]  ${dossier_type}
+  Click  //*[@data-e2e-name="create-dossier"]
+  Skip If Dossier Type Unavailable  ${dossier_type}
+
+Publish Dossier And Return To Admin Home
+  [Arguments]  ${publication_status}=Gepubliceerd
+  IF  "${publication_status}" == "Gepubliceerd"
+    Click Save And Prepare
+    Click Publications
+  ELSE IF  "${publication_status}" == "Gepland"
+    ${timestamp} =  Get Current Date
+    ${next_year} =  Add Time To Date  ${timestamp}  730 days
+    Fill Publication Date  ${next_year}
+    Click Save And Prepare
+    Click Publications
+  ELSE IF  "${publication_status}" == "Concept"
+    Click Publications
+  ELSE
+    Fatal Error  Value '${publication_status}' is not an allowed value for $publication_status.
+  END
+
+Fill Publication Date
+  [Arguments]  ${date}
+  ${day} =  Convert Date  ${date}  result_format=%d
+  ${month} =  Convert Date  ${date}  result_format=%m
+  ${year} =  Convert Date  ${date}  result_format=%Y
+  Type Text  id=publish_publication_date  ${day}${month}${year}
+
+Click Publications
+  Click  //*[@data-e2e-name="nav-publications"]
+
+Click Publication By Value
+  [Arguments]  ${value}
+  ${value} =  Convert To Lower Case  ${value}
+  Click  //table[@data-e2e-name="dossiers-table"]//td[contains(.,'${value}')]//a
+
+Verify Publication Confirmation
+  [Arguments]  ${preview_date}  ${publication_date}
+  Get Text  //*[@data-e2e-name="dossier-preview-date"]  contains  ${preview_date}
+  Get Text  //*[@data-e2e-name="dossier-publication-date"]  contains  ${publication_date}
+  Get Text  //*[@data-e2e-name="dossier-publication-date-link"]  contains  ${preview_date}
+
+Click Search Through Documents In Dossier
+  Click  //*[@data-e2e-name="search-through-documents"]
+
+Verify Document Filetype
+  [Arguments]  ${document_number}  ${source_type}  ${file_type}
+  Click  //div[@data-e2e-name="documents-section"]//tbody/tr[td[contains(.,'${document_number}')]]//td//a
+  Get Text  //td[@data-e2e-name="source-type"]  contains  ${source_type}
+  Get Text  //td[@data-e2e-name="file-type"]  contains  ${file_type}
+  Get Text  //a[@data-e2e-name="download-file-link"]  contains  ${file_type.lower()}
+  Generic Download Click  //a[@data-e2e-name="download-file-link"]  ${file_type}
+  Go Back
+
+Select First Public Dossier
+  Click  (//table[@data-e2e-name="dossiers-table"]/tbody/tr[td[contains(.,'Openbaar')]]//td//a)[1]
+
+Click Continue To Publish
+  Wait For Load State  networkidle
+  Click  //*[@data-e2e-name="to-next-step-link"]
+
+Click Save And Prepare
+  Click With CSRF Retry  //*[@id="publish_submit"]
+  Success Alert Is Visible  klaarzetten gelukt: De publicatie wordt voorbereid
+
+Click Edit Details
+  Click  //a[@data-e2e-name="edit-basic-details"]
+
+Edit Main Document
+  Click  //*[@data-e2e-name="main-document"]//*[@data-e2e-name="edit-file"]
+
+Verify Publication Action Status
+  [Arguments]  ${dossier_reference}  ${expected_action}
+  Click Publications
+  IF  '${expected_action}' != '${EMPTY}'
+    Get Text
+    ...  //table[@data-e2e-name="dossiers-table"]//tr[contains(.,'${dossier_reference}')]/td[7]
+    ...  contains
+    ...  ${expected_action}
+  ELSE
+    Get Text
+    ...  //table[@data-e2e-name="dossiers-table"]//tr[contains(.,'${dossier_reference}')]/td[7]
+    ...  equals
+    ...  ${EMPTY}
+  END
+
+Verify Publication Badge Status
+  [Arguments]  ${expected_action}
+  Get Text  (//*[@data-e2e-name="dossier-status-badge"])[1]  contains  ${expected_action}
+
+Verify Dossier Document Count
+  [Arguments]
+  ...  ${nr_of_published_docs}=0
+  ...  ${nr_of_partially_published_docs}=0
+  ...  ${nr_of_unpublished_docs}=0
+  ...  ${nr_of_not_yet_online_docs}=0
+  Get Text  //*[@data-e2e-name="tabs-documenten-button-1"]  contains  (${nr_of_published_docs})
+  Get Text  //*[@data-e2e-name="tabs-documenten-button-2"]  contains  (${nr_of_partially_published_docs})
+  Get Text  //*[@data-e2e-name="tabs-documenten-button-3"]  contains  (${nr_of_unpublished_docs})
+  Get Text  //*[@data-e2e-name="tabs-documenten-button-4"]  contains  (${nr_of_not_yet_online_docs})
+
+Click Save And Continue
+  Click  //button[@data-e2e-name="save-and-continue"]
+
+Fill Out Summary
+  ${random_summary} =  Fakerlibrary.Text  200
+  Fill Text  id=content_form_summary  ${random_summary}
+
+Assert No Input Errors
+  Get Element Count  //*[contains(@class,"js-input-errors")]  should be  0
+
+Click Public URL
+  Click  //*[@data-e2e-name="public-url"]
+
+Verify Dossier Metadata On Public
+  ${reference_lower} =  Convert To Lower Case  ${DOSSIER_REFERENCE}
+  Get Text  //*[@data-e2e-name="dossier-metadata-title"]  contains  ${reference_lower}

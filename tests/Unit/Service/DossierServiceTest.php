@@ -1,0 +1,87 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Service;
+
+use Doctrine\ORM\EntityManagerInterface;
+use Mockery;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecision;
+use Shared\Service\DossierService;
+use Shared\Service\DossierWizard\WizardStatusFactory;
+use Shared\Tests\Unit\UnitTestCase;
+use Symfony\Component\Validator\ConstraintViolationListInterface;
+use Symfony\Component\Validator\Exception\ValidationFailedException;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
+
+class DossierServiceTest extends UnitTestCase
+{
+    public function testValidateCompletionForPublishedWooDecision(): void
+    {
+        $doctrine = Mockery::mock(EntityManagerInterface::class);
+        $statusFactory = Mockery::mock(WizardStatusFactory::class);
+
+        $dossierService = new DossierService(
+            $doctrine,
+            $statusFactory,
+            Mockery::mock(ValidatorInterface::class),
+        );
+
+        $dossier = Mockery::mock(WooDecision::class);
+        $dossier->expects('setCompleted')->with(false);
+
+        $doctrine->expects('persist')->with($dossier);
+        $doctrine->expects('flush');
+
+        $statusFactory->expects('getWizardStatus->isCompleted')->andReturnFalse();
+
+        self::assertFalse($dossierService->validateCompletion($dossier));
+    }
+
+    public function testValidate(): void
+    {
+        $dossier = Mockery::mock(WooDecision::class);
+        $constraintViolationList = Mockery::mock(ConstraintViolationListInterface::class);
+        $constraintViolationList->expects('count')
+            ->andReturn(0);
+
+        $validationGroups = [];
+
+        $validator = Mockery::mock(ValidatorInterface::class);
+        $validator->expects('validate')
+            ->with($dossier, null, $validationGroups)
+            ->andReturn($constraintViolationList);
+
+        $dossierService = new DossierService(
+            Mockery::mock(EntityManagerInterface::class),
+            Mockery::mock(WizardStatusFactory::class),
+            $validator,
+        );
+
+        $dossierService->validate($dossier, $validationGroups);
+    }
+
+    public function testValidateWithErrors(): void
+    {
+        $dossier = Mockery::mock(WooDecision::class);
+        $constraintViolationList = Mockery::mock(ConstraintViolationListInterface::class);
+        $constraintViolationList->expects('count')
+            ->andReturn(1);
+
+        $validationGroups = [];
+
+        $validator = Mockery::mock(ValidatorInterface::class);
+        $validator->expects('validate')
+            ->with($dossier, null, $validationGroups)
+            ->andReturn($constraintViolationList);
+
+        $dossierService = new DossierService(
+            Mockery::mock(EntityManagerInterface::class),
+            Mockery::mock(WizardStatusFactory::class),
+            $validator,
+        );
+
+        $this->expectException(ValidationFailedException::class);
+        $dossierService->validate($dossier, $validationGroups);
+    }
+}

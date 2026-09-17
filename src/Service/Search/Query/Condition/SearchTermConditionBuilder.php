@@ -1,0 +1,174 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Service\Search\Query\Condition;
+
+use Erichard\ElasticQueryBuilder\Query\BoolQuery;
+use Erichard\ElasticQueryBuilder\Query\NestedQuery;
+use Erichard\ElasticQueryBuilder\Query\SimpleQueryStringQuery;
+use Erichard\ElasticQueryBuilder\Query\TermQuery;
+use Erichard\ElasticQueryBuilder\Query\TermsQuery;
+use Shared\Domain\Search\Index\ElasticDocumentType;
+use Shared\Domain\Search\Index\Schema\ElasticField;
+use Shared\Domain\Search\Index\Schema\ElasticNestedField;
+use Shared\Domain\Search\Index\Schema\ElasticPath;
+use Shared\Domain\Search\Query\Facet\FacetList;
+use Shared\Domain\Search\Query\SearchParameters;
+use Shared\Service\Search\Query\Dsl\Query;
+
+class SearchTermConditionBuilder implements QueryConditionBuilderInterface
+{
+    public function applyToQuery(FacetList $facetList, SearchParameters $searchParameters, BoolQuery $query): void
+    {
+        if ($searchParameters->query === '') {
+            $query->addShould(Query::matchAll());
+
+            return;
+        }
+
+        $query->addShould(
+            $this->createDocumentQuery($searchParameters),
+        );
+
+        $query->addShould(
+            $this->createMainTypesQuery($searchParameters),
+        );
+
+        $query->setParams(['minimum_should_match' => 1]);
+    }
+
+    public function createDocumentQuery(SearchParameters $searchParameters): BoolQuery
+    {
+        return Query::bool(
+            should: [
+                $this->getNestedDossiersTitleAndSummaryQuery($searchParameters),
+                $this->getNestedPagesContentQuery($searchParameters),
+                $this->getDocumentFilenameQuery($searchParameters),
+                $this->getDocumentNumberQuery($searchParameters),
+                $this->getDocumentIdQuery($searchParameters),
+            ],
+            filter: [
+                $this->getTypeFilter(),
+            ],
+        )->setParams(['minimum_should_match' => 1]);
+    }
+
+    public function createMainTypesQuery(SearchParameters $searchParameters): BoolQuery
+    {
+        return Query::bool(
+            should: [
+                Query::simpleQueryString(
+                    fields: [ElasticField::TITLE->value],
+                    query: $searchParameters->query,
+                )
+                    ->setDefaultOperator($searchParameters->operator->value)
+                    ->setBoost(5),
+                Query::simpleQueryString(
+                    fields: [ElasticField::SUMMARY->value],
+                    query: $searchParameters->query,
+                )
+                    ->setDefaultOperator($searchParameters->operator->value)
+                    ->setBoost(4),
+                Query::term(
+                    field: ElasticField::PREFIXED_DOSSIER_NUMBER->value,
+                    value: $searchParameters->query,
+                )
+                    ->setCaseInsensitive(true)
+                    ->setBoost(5),
+                Query::term(
+                    field: ElasticField::DOSSIER_NUMBER->value,
+                    value: $searchParameters->query,
+                )
+                    ->setCaseInsensitive(true)
+                    ->setBoost(5),
+            ],
+            filter: [
+                Query::terms(
+                    field: ElasticField::TYPE->value,
+                    values: ElasticDocumentType::getMainTypeValues(),
+                ),
+            ],
+        )->setParams(['minimum_should_match' => 1]);
+    }
+
+    protected function getNestedDossiersTitleAndSummaryQuery(SearchParameters $searchParameters): NestedQuery
+    {
+        return Query::nested(
+            path: ElasticNestedField::DOSSIERS->value,
+            query: Query::bool(
+                should: [
+                    Query::simpleQueryString(
+                        fields: [
+                            ElasticPath::dossiersTitle()->value,
+                        ],
+                        query: $searchParameters->query,
+                    )
+                        ->setDefaultOperator($searchParameters->operator->value)
+                        ->setBoost(3),
+                    Query::simpleQueryString(
+                        fields: [
+                            ElasticPath::dossiersSummary()->value,
+                        ],
+                        query: $searchParameters->query,
+                    )
+                        ->setDefaultOperator($searchParameters->operator->value)
+                        ->setBoost(2),
+                ],
+            )->setParams(['minimum_should_match' => 1]),
+        );
+    }
+
+    protected function getNestedPagesContentQuery(SearchParameters $searchParameters): NestedQuery
+    {
+        return Query::nested(
+            path: ElasticNestedField::PAGES->value,
+            query: Query::simpleQueryString(
+                fields: [
+                    ElasticPath::pagesContent()->value,
+                ],
+                query: $searchParameters->query,
+            )
+                ->setDefaultOperator($searchParameters->operator->value)
+                ->setBoost(1),
+        );
+    }
+
+    protected function getDocumentFilenameQuery(SearchParameters $searchParameters): SimpleQueryStringQuery
+    {
+        return Query::simpleQueryString(
+            fields: [ElasticField::FILENAME->value],
+            query: $searchParameters->query,
+        )
+            ->setDefaultOperator($searchParameters->operator->value)
+            ->setBoost(4);
+    }
+
+    protected function getDocumentNumberQuery(SearchParameters $searchParameters): TermQuery
+    {
+        return Query::term(
+            field: ElasticField::DOCUMENT_NUMBER->value,
+            value: $searchParameters->query,
+        )
+            ->setCaseInsensitive(true)
+            ->setBoost(5);
+    }
+
+    protected function getDocumentIdQuery(SearchParameters $searchParameters): TermQuery
+    {
+        return Query::term(
+            field: ElasticField::DOCUMENT_ID->value,
+            value: $searchParameters->query,
+        )
+            ->setCaseInsensitive(true)
+            ->setBoost(5);
+    }
+
+    protected function getTypeFilter(): TermsQuery
+    {
+        return Query::terms(
+            field: ElasticField::TYPE->value,
+            values: ElasticDocumentType::getSubTypeValues(),
+        );
+    }
+}

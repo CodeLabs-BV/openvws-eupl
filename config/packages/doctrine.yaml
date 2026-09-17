@@ -1,0 +1,73 @@
+doctrine:
+    dbal:
+        # IMPORTANT: You MUST configure your server version,
+        # either here or in the DATABASE_URL env var (see .env file)
+        #server_version: '16'
+
+        profiling_collect_backtrace: '%kernel.debug%'
+        types:
+            !php/const Shared\Doctrine\ExternalIdType::NAME: Shared\Doctrine\ExternalIdType
+            !php/const Shared\Doctrine\LandingPageSlugType::NAME: Shared\Doctrine\LandingPageSlugType
+            !php/const Shared\Doctrine\LandingPageTitleType::NAME: Shared\Doctrine\LandingPageTitleType
+            !php/const Shared\Doctrine\SubjectContentTreeType::NAME: Shared\Doctrine\SubjectContentTreeType
+            !php/const Shared\Doctrine\PlainDateType::NAME: Shared\Doctrine\PlainDateType
+            !php/const Shared\Doctrine\DocumentIdType::NAME: Shared\Doctrine\DocumentIdType
+            !php/const Shared\Doctrine\DocumentNumberType::NAME: Shared\Doctrine\DocumentNumberType
+            !php/const Shared\Doctrine\DossierTitleType::NAME: Shared\Doctrine\DossierTitleType
+            !php/const Shared\Doctrine\OrganisationPrefixType::NAME: Shared\Doctrine\OrganisationPrefixType
+            !php/const Shared\Doctrine\PublicationContextType::NAME: Shared\Doctrine\PublicationContextType
+    orm:
+        validate_xml_mapping: true
+        naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
+        auto_mapping: false
+        mappings:
+            App:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Service'
+                prefix: 'Shared\Service'
+                alias: App
+            Domain:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Domain'
+                prefix: 'Shared\Domain'
+                alias: Domain
+            SharedValueObjects:
+                is_bundle: false
+                type: attribute
+                dir: '%kernel.project_dir%/src/ValueObject'
+                prefix: 'Shared\ValueObject'
+                alias: SharedValueObjects
+        dql:
+            string_functions:
+                CONTAINS: MartinGeorgiev\Doctrine\ORM\Query\AST\Functions\Contains
+                JSON_EXTRACT_PATH_TEXT: MartinGeorgiev\Doctrine\ORM\Query\AST\Functions\JsonExtractPathText
+                ILIKE: MartinGeorgiev\Doctrine\ORM\Query\AST\Functions\Ilike
+                TYPE: Shared\Doctrine\TypeFunction
+
+when@test:
+    doctrine:
+        dbal:
+            connections:
+                default:
+                    # "TEST_TOKEN" is typically set by ParaTest
+                    dbname_suffix: '_test%env(default::TEST_TOKEN)%'
+
+when@prod:
+    doctrine:
+        orm:
+            query_cache_driver:
+                type: pool
+                pool: doctrine.system_cache_pool
+            result_cache_driver:
+                type: pool
+                pool: doctrine.result_cache_pool
+
+    framework:
+        cache:
+            pools:
+                doctrine.result_cache_pool:
+                    adapter: cache.app
+                doctrine.system_cache_pool:
+                    adapter: cache.system

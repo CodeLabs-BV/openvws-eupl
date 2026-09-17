@@ -1,0 +1,13 @@
+services:
+    _defaults:
+        autowire: true      # Automatically injects dependencies in your services.
+        autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+
+    Shared\Domain\Publication\BatchDownload\Archiver\ZipStreamBatchArchiver:
+        arguments:
+            $batchBucket: '%storage.minio.bucket.batch%'
+            $documentBucket: '%storage.minio.bucket.document%'
+
+    Shared\Domain\Publication\BatchDownload\OnDemandZipGenerator:
+        arguments:
+            $documentBucket: '%storage.minio.bucket.document%'

@@ -1,0 +1,88 @@
+{% extends 'public/base.html.twig' %}
+{% import 'public/macros/document.html.twig' as macro %}
+
+{% set page_title = document.entity.fileInfo.name %}
+
+{% block body %}
+{% set documentNumber = document.entity.documentNumber.toString() %}
+<div class="woo-container woo-container--sm">
+    <h1 class="woo-h1 sm:flex">
+        <span class="block">
+            <twig:Public:FileIcon type="{{ document.entity.fileInfo.sourceType.value }}" class="mr-4 -mt-0.5" size="32" />
+            <span class="sr-only">{{ document.entity.fileInfo.sourceType | trans }}</span>
+        </span>
+        <span>{{ document.entity.fileInfo.name }}</span>
+    </h1>
+
+    <dl class="woo-muted">
+        <div>
+            <dt class="sr-only">{{ 'global.published_on' | trans }}: </dt>
+            <dd>
+            {% if document.entity.documentDate is not null %}
+                <time datetime="{{ document.entity.documentDate | date('Y-m-d') }}">{{ document.entity.documentDate | format_date('long') }}</time>
+            {% else %}
+                {{ 'global.date_not_available' | trans }}
+            {% endif %}
+            </dd>
+        </div>
+        <div>
+            <dt class="inline">{{ 'global.document_number' | trans }}:</dt>
+            <dd class="inline">{{ documentNumber }}</dd>
+        </div>
+    </dl>
+
+    {% if dossier.responsibilityContent is not null %}
+    <div class="pt-10">
+        <twig:Public:Notification>
+            <div class="woo-rich-text">
+                {{ dossier.responsibilityContent | render_markdown }}
+            </div>
+        </twig:Public:Notification>
+    </div>
+    {% endif %}
+
+    {% include 'public/dossier/woo-decision/document/snippets/notifications.html.twig' %}
+
+    {% include 'public/dossier/woo-decision/document/snippets/viewer.html.twig' %}
+
+    {% include 'public/dossier/woo-decision/document/snippets/download.html.twig' %}
+
+    {% include 'public/dossier/woo-decision/document/snippets/about.html.twig' %}
+
+    {% if document.entity.fileInfo.sourceType.isEmail %}
+        {% include 'public/dossier/woo-decision/document/snippets/documents.html.twig' with {
+            documents: thread,
+            id: 'berichten-in-conversatie',
+            title: 'public.documents.email_thread' | trans,
+            searchUrl: thread_search_url,
+        } %}
+
+        {% include 'public/dossier/woo-decision/document/snippets/documents.html.twig' with {
+            documents: family,
+            id: 'bijlagen',
+            title: 'public.documents.attachments' | trans,
+            searchUrl: family_search_url,
+        } %}
+    {% else %}
+        {% include 'public/dossier/woo-decision/document/snippets/documents.html.twig' with {
+            documents: document.entity.referredBy,
+            id: 'gerefereerde-documenten',
+            isSortable: false,
+            title: 'public.documents.referred_by' | trans,
+            searchUrl: referred_search_url,
+        } %}
+
+        {% include 'public/dossier/woo-decision/document/snippets/documents.html.twig' with {
+            documents: family,
+            id: 'gerelateerde-documenten',
+            title: 'public.documents.related_documents' | trans,
+            searchUrl: family_search_url,
+        } %}
+    {% endif %}
+
+    {% include 'public/dossier/woo-decision/document/snippets/background.html.twig' %}
+
+    {{ macro.history_section(get_frontend_history('document', document.entity.id), 'public.documents.document_history') }}
+    </div>
+</section>
+{% endblock %}

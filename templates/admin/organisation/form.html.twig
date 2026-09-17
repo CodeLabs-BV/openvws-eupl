@@ -1,0 +1,38 @@
+<div class="w-1/2">
+    {{ form_start(organisationForm) }}
+
+    {{ form_row(organisationForm.name) }}
+    {% if organisationForm.children.prefix is defined %}
+        {{ form_row(organisationForm.prefix) }}
+    {% elseif organisationForm.vars.data.prefix is not null %}
+        <div class="bhr-form-row">
+            <h2 class="bhr-label">{{ 'admin.organisation.prefix' | trans }}</h2>
+            <p class="bhr-readonly-text">{{ organisationForm.vars.data.prefix }}</p>
+        </div>
+    {% endif %}
+
+    <div {{ vue_component('GenericController', {
+        componentName: 'MultiSelect',
+
+        buttonText: 'Voeg een bestuursorgaan toe',
+        buttonTextMultiple: 'Voeg nog een bestuursorgaan toe',
+        label: 'Verantwoordelijke bestuursorganen',
+        legend: 'Verantwoordelijke bestuursorganen',
+        minLength: 1,
+        name: 'organisation_form[departments]',
+        options: departmentOptions,
+        submitErrors: departmentsErrors,
+        values: departmentValues,
+    }) }}>
+        <div class="min-h-14"></div>
+    </div>
+    {% do organisationForm.departments.setRendered %}
+
+    <div class="my-8">
+        {{ form_errors(organisationForm) }}
+    </div>
+
+    {{ form_row(organisationForm.submit) }}
+
+    {{ form_end(organisationForm) }}
+</div>

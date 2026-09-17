@@ -1,0 +1,46 @@
+{% set tabPaginators = [
+    publicDocuments,
+    alreadyPublicDocuments,
+    notPublicDocuments,
+    notOnlineDocuments,
+] %}
+
+{% set publicationTypes = [
+    'public.documents.match_request' | trans,
+    'public.documents.already_public_short' | trans,
+    'public.documents.not_made_public' | trans,
+    'public.documents.not_yet_online' | trans,
+] %}
+
+{% set tabButtonTitles = [] %}
+{% for publicationType in publicationTypes %}
+    {% set tabButtonTitles = tabButtonTitles|merge([publicationType ~ ' (' ~ tabPaginators[loop.index0].totalItemCount ~ ')']) %}
+{% endfor %}
+
+{% set tabsName = 'documenten' %}
+<twig:Public:Tabs
+    buttonTitles="{{ tabButtonTitles }}"
+    name="{{ tabsName }}"
+    title="{{ 'global.documents' | trans }}"
+>
+    {% for paginator in tabPaginators %}
+        <twig:Tab:Content
+            numberOfTabs="{{ tabPaginators | length }}"
+            tabNumber="{{ loop.index }}"
+            tabsName="{{ tabsName }}"
+            isHidden="{{ not loop.first }}"
+        >
+            <twig:Public:Publication:WooDecision:DocumentsTable
+                documents="{{ paginator }}"
+                dossier="{{ dossier | default(null) }}"
+                fragment="{{ '#tabs-' ~ tabsName ~ '-button-' ~ loop.index }}"
+                isSortable="{{ true }}"
+                title="{{ tabButtonTitles[loop.index0] }}"
+            >
+                {% if paginator | length == 0 %}
+                    {{ 'public.publication.no_documents_within_publication' | trans({ status: publicationTypes[loop.index0] | lower }) }}.
+                {% endif %}
+            </twig:Public:Publication:WooDecision:DocumentsTable>
+        </twig:Tab:Content>
+    {% endfor %}
+</twig:Public:Tabs>

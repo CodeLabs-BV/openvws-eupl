@@ -1,0 +1,83 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Domain\Publication\Attachment\Enum;
+
+use Mockery;
+use PHPUnit\Framework\Attributes\DataProvider;
+use Shared\Domain\Publication\Attachment\Enum\AttachmentLanguage;
+use Shared\Tests\Unit\UnitTestCase as UnitUnitTestCase;
+use Symfony\Contracts\Translation\TranslatableInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
+
+use function array_column;
+use function array_unique;
+use function count;
+
+final class AttachmentLanguageTest extends UnitUnitTestCase
+{
+    public function testAttachmentLanguageIsTranslatable(): void
+    {
+        $this->assertInstanceOf(TranslatableInterface::class, AttachmentLanguage::NLD, 'AttachmentLanguage should be translatable');
+    }
+
+    public function testCasesAllHAveUniqueValues(): void
+    {
+        $values = array_column(AttachmentLanguage::cases(), 'value');
+
+        $this->assertCount(count($values), array_unique($values), 'All cases should have unique values');
+    }
+
+    public function testToArray(): void
+    {
+        $translator = Mockery::mock(TranslatorInterface::class);
+        $translator->expects('trans')->times(count(AttachmentLanguage::cases()))->andReturnArg(0);
+
+        $result = [];
+        foreach (AttachmentLanguage::cases() as $case) {
+            $result[] = $case->toArray($translator);
+        }
+
+        $this->assertMatchesJsonSnapshot($result);
+    }
+
+    #[DataProvider('transDataProvider')]
+    public function testTransKey(AttachmentLanguage $attachmentLanguage, string $expectedKey, ?string $locale): void
+    {
+        $translator = Mockery::mock(TranslatorInterface::class);
+        $translator
+            ->expects('trans')
+            ->with(
+                Mockery::on(function (string $key) use ($expectedKey): bool {
+                    $this->assertSame($expectedKey, $key, 'The translation key does not match expected value');
+
+                    return true;
+                }),
+                [],
+                AttachmentLanguage::TRANS_DOMAIN,
+                $locale,
+            );
+
+        $attachmentLanguage->trans($translator, $locale);
+    }
+
+    /**
+     * @return array<string,array{attachmentLanguage:AttachmentLanguage,expectedKey:string,locale:?string}>
+     */
+    public static function transDataProvider(): array
+    {
+        return [
+            'case NLD' => [
+                'attachmentLanguage' => AttachmentLanguage::NLD,
+                'expectedKey' => 'nld',
+                'locale' => null,
+            ],
+            'case ENG' => [
+                'attachmentLanguage' => AttachmentLanguage::ENG,
+                'expectedKey' => 'eng',
+                'locale' => 'nl',
+            ],
+        ];
+    }
+}

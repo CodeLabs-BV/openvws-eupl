@@ -1,0 +1,38 @@
+{{ form_start(form) }}
+    {{ form_row(form.summary) }}
+
+    <twig:Admin:Publication:ManageNoticeNotPublic
+        canDelete="{{ hasNoticeNotPublic }}"
+        endpoint="{{ '/balie/api/dossiers/' ~ dossier.id ~ '/notice-not-public' }}"
+        formField="{{ form.noticeNotPublic }}"
+        grounds="{{ grounds }}"
+        hasMainDocument="{{ dossier.mainDocument is not null }}"
+    />
+
+    <twig:Admin:Publication:ManageDocument
+        canDelete="{{ canDeleteDocument }}"
+        documentType="{{ 'admin.dossiers.investigation-report.document' | trans }}"
+        documentTypes="{{ documentTypes }}"
+        endpoint="{{ '/balie/api/dossiers/' ~ dossier.id ~ '/investigation-report-document' }}"
+        fileLimits="{{ documentFileLimits | default([])}}"
+        formField="{{ form.document }}"
+        grounds="{{ grounds }}"
+        hasNoticeNotPublic="{{ hasNoticeNotPublic }}"
+        helpText="{{ 'admin.dossiers.investigation-report.form.content.document_help' | trans }}"
+        languages="{{ attachmentLanguages }}"
+        title="{{ 'admin.dossiers.investigation-report.form.content.document_label' | trans }}"
+        dossierId="{{ dossier.id }}"
+    />
+
+    <twig:Admin:Publication:ManageAttachments
+        canDelete="{{ canDeleteAttachments }}"
+        documentTypes="{{ attachmentTypes }}"
+        endpoint="{{ '/balie/api/dossiers/' ~ dossier.id ~ '/investigation-report-attachments' }}"
+        fileLimits="{{ attachmentFileLimits | default([])}}"
+        grounds="{{ grounds }}"
+        helpText="{{ 'admin.dossiers.investigation-report.form.content.attachments_help' | trans }}"
+        languages="{{ attachmentLanguages }}"
+        dossierId="{{ dossier.id }}"
+    />
+
+{{ form_end(form) }}

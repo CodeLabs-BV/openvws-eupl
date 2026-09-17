@@ -1,0 +1,23 @@
+{% extends 'admin/base.html.twig' %}
+
+{% set page_title = 'admin.user.managment' | trans %}
+
+{% block body %}
+<div class="bhr-container">
+    <twig:Admin:LeftAndRight>
+        <h1 class="bhr-title">{{ page_title }}</h1>
+
+        <twig:block name="right">
+            {% if matrix_has_permission('user.create') %}
+            <a class="bhr-btn-filled-primary" href="{{ path('app_admin_user_create') }}" data-e2e-name="create-user">{{ 'admin.user.create' | trans }}</a>
+            {% endif %}
+        </twig:block>
+    </twig:Admin:LeftAndRight>
+
+    <div class="bhr-card">
+        {% include 'admin/shared/flash-messages.html.twig' %}
+
+        {% include 'admin/user/snippets/user-tabs.html.twig' %}
+    </div>
+</div>
+{% endblock %}

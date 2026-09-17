@@ -1,0 +1,22 @@
+name: E2E Tests - Limits
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: 0 0 * * 0 # “At 00:00 on Sunday.”
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 20
+  PHP_VERSION: 8.4
+
+jobs:
+  test-ci:
+    name: "Run weekly test suite in CI"
+    uses: ./.github/workflows/e2e-ci.yml
+    secrets: inherit
+    with:
+      test_tag: "limits"

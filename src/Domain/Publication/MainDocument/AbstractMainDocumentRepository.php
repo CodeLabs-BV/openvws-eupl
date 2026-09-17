@@ -1,0 +1,86 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Domain\Publication\MainDocument;
+
+use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Shared\Domain\Publication\Dossier\AbstractDossier;
+use Shared\Domain\Publication\MainDocument\Command\CreateMainDocumentCommand;
+use Symfony\Component\Uid\Uuid;
+
+/**
+ * @template T of AbstractMainDocument
+ *
+ * @extends ServiceEntityRepository<T>
+ */
+abstract class AbstractMainDocumentRepository extends ServiceEntityRepository
+{
+    /**
+     * @param T $entity
+     */
+    public function save(AbstractMainDocument $entity, bool $flush = false): void
+    {
+        $this->getEntityManager()->persist($entity);
+
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
+    /**
+     * @param T $entity
+     */
+    public function remove(AbstractMainDocument $entity, bool $flush = false): void
+    {
+        $this->getEntityManager()->remove($entity);
+
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
+    /**
+     * @return ?T
+     */
+    public function findOneByDossierId(Uuid $dossierId): ?AbstractMainDocument
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->innerJoin('d.dossier', 'dos')
+            ->where('dos.id = :dossierId')
+            ->setParameter('dossierId', $dossierId);
+
+        /** @var ?T */
+        return $qb->getQuery()->getOneOrNullResult();
+    }
+
+    /**
+     * @return ?T
+     */
+    public function findForDossierByPrefixAndDossierNumber(string $documentPrefix, string $dossierNumber): ?AbstractMainDocument
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->innerJoin('d.dossier', 'dos')
+            ->where('dos.dossierNumber = :dossierNumber')
+            ->andWhere('dos.documentPrefix = :documentPrefix')
+            ->setParameter('dossierNumber', $dossierNumber)
+            ->setParameter('documentPrefix', $documentPrefix);
+
+        /** @var ?T */
+        return $qb->getQuery()->getOneOrNullResult();
+    }
+
+    /**
+     * @return T
+     */
+    public function create(AbstractDossier $dossier, CreateMainDocumentCommand $command): AbstractMainDocument
+    {
+        /** @var T */
+        return new ($this->getEntityName())(
+            dossier: $dossier,
+            formalDate: $command->formalDate,
+            type: $command->type,
+            language: $command->language,
+        );
+    }
+}

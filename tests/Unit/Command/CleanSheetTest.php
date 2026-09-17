@@ -1,0 +1,99 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Command;
+
+use ArrayIterator;
+use Doctrine\ORM\EntityManagerInterface;
+use Mockery;
+use Mockery\MockInterface;
+use Shared\Command\CleanSheet;
+use Shared\Domain\Search\Index\ElasticIndex\ElasticIndexManager;
+use Shared\Domain\WooIndex\WooIndexSitemapService;
+use Shared\Tests\Unit\UnitTestCase;
+use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Helper\HelperSet;
+use Symfony\Component\Console\Input\InputDefinition;
+use Symfony\Component\Console\Tester\CommandTester;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
+
+class CleanSheetTest extends UnitTestCase
+{
+    private Command $command;
+    private ElasticIndexManager&MockInterface $indexService;
+    private EntityManagerInterface&MockInterface $entityManager;
+    private HttpClientInterface&MockInterface $client;
+    private WooIndexSitemapService&MockInterface $wooIndexSitemapService;
+    private Command&MockInterface $cacheClearCommand;
+
+    protected function setUp(): void
+    {
+        $this->indexService = Mockery::mock(ElasticIndexManager::class);
+        $this->entityManager = Mockery::mock(EntityManagerInterface::class);
+        $this->client = Mockery::mock(HttpClientInterface::class);
+        $this->wooIndexSitemapService = Mockery::mock(WooIndexSitemapService::class);
+
+        $helperSet = Mockery::mock(HelperSet::class);
+        $helperSet->expects('getIterator')
+            ->andReturn(new ArrayIterator());
+
+        $this->cacheClearCommand = Mockery::mock(Command::class);
+        $this->cacheClearCommand->expects('setApplication');
+        $this->cacheClearCommand->expects('isEnabled')
+            ->andReturnTrue();
+        $this->cacheClearCommand->expects('getDefinition')
+            ->andReturn(new InputDefinition());
+        $this->cacheClearCommand->expects('getName')
+            ->times(2)
+            ->andReturn('cache:pool:clear');
+        $this->cacheClearCommand->expects('getAliases')
+            ->times(3)
+            ->andReturn([]);
+        $this->cacheClearCommand->expects('getHelperSet')
+            ->andReturn($helperSet);
+        $this->cacheClearCommand->expects('getSubscribedSignals')
+            ->andReturn([]);
+
+        $application = new Application();
+        $application->addCommand(
+            new CleanSheet(
+                ['dummy-dsn'],
+                $this->entityManager,
+                $this->indexService,
+                $this->client,
+                $this->wooIndexSitemapService,
+            ),
+        );
+        $application->addCommand($this->cacheClearCommand);
+
+        $this->command = $application->find('woopie:dev:clean-sheet');
+    }
+
+    public function testExecuteHappyFlow(): void
+    {
+        $commandTester = new CommandTester($this->command);
+
+        $this->entityManager->expects('createQueryBuilder->delete->getQuery->execute')->times(7);
+
+        $this->indexService->expects('delete')
+            ->with('woopie');
+        $this->indexService->expects('createLatestWithAliases')
+            ->with('woopie');
+
+        $response = Mockery::mock(ResponseInterface::class);
+        $response->expects('getStatusCode')->andReturn(204);
+
+        $this->client->expects('request')->with('DELETE', Mockery::type('string'))->andReturn($response);
+
+        $this->wooIndexSitemapService->expects('cleanupAllSitemaps');
+
+        $this->cacheClearCommand->expects('run');
+
+        $commandTester->execute(['--force' => 1, '--index' => 'woopie']);
+
+        self::assertEquals(0, $commandTester->getStatusCode());
+    }
+}

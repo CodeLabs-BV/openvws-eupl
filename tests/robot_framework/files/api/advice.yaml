@@ -1,0 +1,135 @@
+baseline:
+  skip: false
+  tags: []
+  request:
+    body:
+      departmentId: <ROBOT SELECT>
+      dossierDate: <ROBOT DATE -14>
+      dossierNumber: <ROBOT RANDOMIZE>
+      publicationDate: <ROBOT DATE +0>
+      subjectId: <ROBOT SELECT>
+      summary: |
+        Officer factor language reveal Mrs color space. Always conference themselves study over.
+        Seem happen civil begin that out. Occur either couple parent appear operation hair simple.
+      title: <ROBOT RANDOMIZE>
+      mainDocument:
+        fileName: dummy.txt
+        formalDate: <ROBOT DATE -14>
+        grounds: [<ROBOT RANDOMIZE>]
+        language: NLD
+        type: c_d506b718
+      attachments:
+        - externalId: <PYTHON GUID>
+          fileName: de-aanvraag-om-advies.txt
+          formalDate: <ROBOT DATE -12>
+          grounds: [<ROBOT RANDOMIZE>]
+          language: NLD
+          type: c_a40458df
+        - externalId: <PYTHON GUID>
+          fileName: bijbehorende vergunning.txt
+          formalDate: <ROBOT DATE -25>
+          grounds: [<ROBOT RANDOMIZE>]
+          language: NLD
+          type: c_002fc258
+    files:
+      mainDocument:
+        file: files/dummy.txt
+        expected_response_status: 204
+      attachments:
+        - externalId: <PYTHON GUID>
+          file: files/dummy.txt
+          expected_response_status: 204
+        - externalId: <PYTHON GUID>
+          file: files/dummy.txt
+          expected_response_status: 204
+    expected_response_status: 200
+    expected_publication_status: published
+
+testcases:
+- title: Happy flow
+  steps:
+    - name: Create dossier
+      request: {}
+
+- title: Upload the exact same request twice
+  steps:
+    - name: Create dossier
+      request:
+        files:
+          mainDocument:
+          attachments: []
+          documents: []
+        expected_publication_status: concept
+    - name: Create dossier again with identical request
+      reuse_previous_request: true
+      request:
+        files:
+          mainDocument:
+          attachments: []
+        expected_publication_status: concept
+
+- title: HAL links should be reachable
+  steps:
+    - name: Create dossier
+      request: {}
+    - name: Verify HAL links
+      keyword:
+        name: Verify HAL Links Are Reachable
+
+- title: Update dossier metadata after publish
+  steps:
+    - name: Create dossier
+      request: {}
+    - name: Change title before resend
+      keyword:
+        name: Update Previous Request Body
+        args:
+          - title
+          - Updated title after publish
+    - name: Re-send with updated title while published
+      reuse_previous_request: true
+      request:
+        files:
+          mainDocument:
+          attachments: []
+        expected_publication_status: published
+
+- title: Adding an attachment to a published dossier is allowed
+  steps:
+    - name: Create dossier
+      request: {}
+    - name: Add an extra attachment before resend
+      keyword:
+        name: Add Generated Attachment To Previous Request Body
+        args:
+          - - c_9376c730
+    - name: Re-send with an extra attachment while published
+      reuse_previous_request: true
+      request:
+        files:
+          mainDocument:
+          attachments: []
+        expected_response_status: 200
+    - name: Upload the new attachment's file
+      keyword:
+        name: Upload Generated Attachment
+        args:
+          - advice
+
+- title: Removing an attachment from a published dossier is rejected
+  steps:
+    - name: Create dossier
+      request: {}
+    - name: Remove attachments before resend
+      keyword:
+        name: Update Previous Request Body
+        args:
+          - attachments
+          - []
+    - name: Re-send with no attachments while published
+      reuse_previous_request: true
+      request:
+        files:
+          mainDocument:
+          attachments: []
+        expected_response_status: 422

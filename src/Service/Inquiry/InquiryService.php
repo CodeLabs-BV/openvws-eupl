@@ -1,0 +1,224 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Service\Inquiry;
+
+use Doctrine\ORM\EntityManagerInterface;
+use Shared\Domain\Ingest\IngestDispatcher;
+use Shared\Domain\Organisation\Organisation;
+use Shared\Domain\Publication\BatchDownload\BatchDownloadScope;
+use Shared\Domain\Publication\BatchDownload\BatchDownloadService;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Document\Document;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Inquiry\Inquiry;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Inquiry\InquiryInventory;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecision;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecisionDispatcher;
+use Shared\Domain\Search\SearchDispatcher;
+use Shared\Service\HistoryService;
+use Shared\Service\Storage\EntityStorageService;
+use Symfony\Component\Uid\Uuid;
+
+use function count;
+use function strval;
+
+readonly class InquiryService
+{
+    public function __construct(
+        protected EntityManagerInterface $doctrine,
+        private BatchDownloadService $batchDownloadService,
+        private EntityStorageService $entityStorageService,
+        protected HistoryService $historyService,
+        private SearchDispatcher $searchDispatcher,
+        private WooDecisionDispatcher $wooDecisionDispatcher,
+        private IngestDispatcher $ingestDispatcher,
+    ) {
+    }
+
+    public function findOrCreateInquiryForInquiryNumber(Organisation $organisation, string $inquiryNumber): Inquiry
+    {
+        $inquiry = $this->doctrine->getRepository(Inquiry::class)->findOneBy(['organisation' => $organisation, 'inquiryNumber' => $inquiryNumber]);
+
+        if (! $inquiry) {
+            $inquiry = new Inquiry();
+            $inquiry->setInquiryNumber($inquiryNumber);
+            $inquiry->setOrganisation($organisation);
+
+            $this->doctrine->persist($inquiry);
+            $this->doctrine->flush();
+        }
+
+        return $inquiry;
+    }
+
+    /**
+     * Removes the given dossier from all inquiries that are currently linked to it.
+     * If no other dossiers remain in the inquiry it will be removed.
+     */
+    public function removeDossierFromInquiries(WooDecision $dossier): void
+    {
+        foreach ($this->doctrine->getRepository(Inquiry::class)->findByDossier($dossier) as $inquiry) {
+            /** @var Inquiry $inquiry */
+            $inquiry->removeDossier($dossier);
+            $this->batchDownloadService->removeAllForScope(
+                BatchDownloadScope::forInquiryAndWooDecision($inquiry, $dossier),
+            );
+
+            if ($inquiry->getDossiers()->isEmpty()) {
+                $inventory = $inquiry->getInventory();
+                if ($inventory instanceof InquiryInventory) {
+                    $this->entityStorageService->deleteAllFilesForEntity($inventory);
+                    $this->doctrine->remove($inventory);
+                }
+
+                $this->doctrine->remove($inquiry);
+            } else {
+                $this->doctrine->persist($inquiry);
+
+                $this->generateInventory($inquiry);
+            }
+        }
+
+        $this->doctrine->flush();
+    }
+
+    public function generateInventory(Inquiry $inquiry): void
+    {
+        $this->wooDecisionDispatcher->dispatchGenerateInquiryInventoryCommand($inquiry->getId());
+    }
+
+    /**
+     * @param array<array-key, Uuid> $docIdsToAdd
+     * @param array<array-key, Uuid> $docIdsToDelete
+     * @param array<array-key, Uuid> $dossierIdsToAdd
+     */
+    public function updateInquiryLinks(
+        Organisation $organisation,
+        string $inquiryNumber,
+        array $docIdsToAdd,
+        array $docIdsToDelete,
+        array $dossierIdsToAdd,
+    ): void {
+        $inquiry = $this->findOrCreateInquiryForInquiryNumber($organisation, $inquiryNumber);
+        $result = new InquiryLinkUpdateResult($inquiry, $inquiryNumber);
+
+        foreach ($docIdsToAdd as $docIdToAdd) {
+            $this->handleDocumentAdd($docIdToAdd, $result);
+        }
+
+        foreach ($docIdsToDelete as $docIdToDelete) {
+            $this->handleDocumentDelete($docIdToDelete, $result);
+        }
+
+        foreach ($dossierIdsToAdd as $dossierId) {
+            $this->handleDossierAdd($dossierId, $result);
+        }
+
+        if ($result->hasAddedDossiers()) {
+            $this->historyService->addInquiryEntry($inquiry, 'dossiers_added', ['count' => $result->getAddedDossierCount()]);
+        }
+        if (count($docIdsToAdd) > 0) {
+            $this->historyService->addInquiryEntry($inquiry, 'documents_added', ['count' => count($docIdsToAdd)]);
+        }
+
+        $this->doctrine->persist($inquiry);
+        $this->doctrine->flush();
+
+        if ($result->needsFileUpdate()) {
+            $this->generateInventory($inquiry);
+        }
+
+        $this->dispatchDocumentUpdates($result);
+        $this->dispatchDossierUpdates($result);
+    }
+
+    public function applyChangesetAsync(InquiryChangeset $changeset): void
+    {
+        foreach ($changeset->getChanges() as $inquiryNumber => $actions) {
+            $this->wooDecisionDispatcher->dispatchUpdateInquiryLinksCommand(
+                $changeset->getOrganisation()->getId(),
+                strval($inquiryNumber),
+                $actions[InquiryChangeset::ADD_DOCUMENTS],
+                $actions[InquiryChangeset::DEL_DOCUMENTS],
+                $actions[InquiryChangeset::ADD_DOSSIERS],
+            );
+        }
+    }
+
+    protected function handleDocumentDelete(
+        Uuid $documentId,
+        InquiryLinkUpdateResult $result,
+    ): void {
+        $document = $this->doctrine->getRepository(Document::class)->find($documentId);
+        if ($document === null) {
+            return;
+        }
+
+        // Document removal for inquiries is disabled as part of #2868. It was initially disabled in the
+        // Inquiry::removeDocument method, but it's now disabled here so we can still use remove Documents from
+        // Inquiries the for the PublicationApi (see #5953):
+        // $result->getInquiry()->removeDocument($document);
+        $result->documentRemoved($document);
+    }
+
+    private function dispatchDocumentUpdates(InquiryLinkUpdateResult $result): void
+    {
+        foreach ($result->getUpdatedDocumentIds() as $id) {
+            $this->ingestDispatcher->dispatchIngestMetadataOnlyCommand($id, Document::class, false);
+        }
+    }
+
+    private function dispatchDossierUpdates(InquiryLinkUpdateResult $result): void
+    {
+        foreach ($result->getUpdatedDossierIds() as $id) {
+            $this->searchDispatcher->dispatchIndexDossierCommand($id);
+        }
+    }
+
+    private function handleDocumentAdd(
+        Uuid $documentId,
+        InquiryLinkUpdateResult $result,
+    ): void {
+        $document = $this->doctrine->getRepository(Document::class)->find($documentId);
+        if ($document === null) {
+            return;
+        }
+
+        $inquiry = $result->getInquiry();
+        $inquiry->addDocument($document);
+        foreach ($document->getDossiers() as $dossier) {
+            if ($this->addDossierToInquiry($inquiry, $dossier, $result->getInquiryNumber())) {
+                $result->dossierAdded($dossier);
+            }
+        }
+
+        $result->documentAdded($document);
+    }
+
+    private function handleDossierAdd(
+        Uuid $dossierId,
+        InquiryLinkUpdateResult $result,
+    ): void {
+        $dossier = $this->doctrine->getRepository(WooDecision::class)->find($dossierId);
+        if ($dossier === null) {
+            return;
+        }
+
+        if ($this->addDossierToInquiry($result->getInquiry(), $dossier, $result->getInquiryNumber())) {
+            $result->dossierAdded($dossier);
+        }
+    }
+
+    private function addDossierToInquiry(Inquiry $inquiry, ?WooDecision $dossier, string $inquiryNumber): bool
+    {
+        if (! $dossier || $inquiry->getDossiers()->contains($dossier)) {
+            return false;
+        }
+
+        $inquiry->addDossier($dossier);
+
+        $this->historyService->addDossierEntry($dossier->getId(), 'dossier_inquiry_added', ['count' => 1, 'inquiryNumbers' => $inquiryNumber]);
+
+        return $dossier->getStatus()->isPubliclyAvailable();
+    }
+}

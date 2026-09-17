@@ -1,0 +1,187 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Command;
+
+use Doctrine\ORM\EntityManagerInterface;
+use Exception;
+use RuntimeException;
+use Shared\Domain\Publication\BatchDownload\BatchDownload;
+use Shared\Domain\Publication\Dossier\AbstractDossier;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Document\Document;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Inquiry\Inquiry;
+use Shared\Domain\Publication\History\History;
+use Shared\Domain\Publication\Subject\Subject;
+use Shared\Domain\Search\Index\ElasticIndex\ElasticIndexManager;
+use Shared\Domain\Upload\UploadEntity;
+use Shared\Domain\WooIndex\WooIndexSitemapService;
+use Shared\Service\Security\User;
+use Symfony\Component\Console\Attribute\AsCommand;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\DependencyInjection\Attribute\When;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Webmozart\Assert\Assert;
+
+use function str_replace;
+use function trim;
+
+#[When('dev')]
+#[AsCommand(name: 'woopie:dev:clean-sheet', description: 'Resets data from search index, database, file storage and message queue.')]
+class CleanSheet extends Command
+{
+    /**
+     * @param array<array-key, string> $queueDsns
+     */
+    public function __construct(
+        private readonly array $queueDsns,
+        private readonly EntityManagerInterface $entityManager,
+        private readonly ElasticIndexManager $indexService,
+        private readonly HttpClientInterface $httpClient,
+        private readonly WooIndexSitemapService $wooIndexSitemapService,
+    ) {
+        parent::__construct();
+    }
+
+    protected function configure(): void
+    {
+        $this
+            ->setDefinition([
+                new InputOption('force', null, InputOption::VALUE_NONE, 'Force the operation without confirmation'),
+                new InputOption('users', 'u', InputOption::VALUE_NONE, 'Reset users'),
+                new InputOption('keep-subjects', 's', InputOption::VALUE_NONE, 'Do not remove subjects'),
+                new InputOption('index', null, InputOption::VALUE_REQUIRED, 'ES index name'),
+            ]);
+    }
+
+    protected function execute(InputInterface $input, OutputInterface $output): int
+    {
+        $shouldForce = $input->getOption('force');
+        $io = new SymfonyStyle($input, $output);
+        if (! $shouldForce && ! $io->confirm('Are you REALLY sure you want to clear data from the system?', false)) {
+            $output->writeln('Cancelled execution, no data has been removed');
+
+            return self::SUCCESS;
+        }
+
+        $this->clearQueues($output);
+
+        $indexName = $input->getOption('index');
+        Assert::nullOrString($indexName);
+        if ($indexName === null || trim($indexName) === '') {
+            $output->writeln('<error>No ES index name provided. Please provide an index name using the --index option.</error>');
+
+            return self::FAILURE;
+        }
+
+        $this->removeElasticSearchIndex($indexName, $output);
+        $this->createElasticSearchIndex($indexName, $output);
+
+        $this->deleteAllEntities(BatchDownload::class, $output);
+        $this->deleteAllEntities(AbstractDossier::class, $output);
+        $this->deleteAllEntities(Document::class, $output);
+        $this->deleteAllEntities(Inquiry::class, $output);
+        $this->deleteAllEntities(History::class, $output);
+        $this->deleteAllEntities(UploadEntity::class, $output);
+        $this->clearAllSitemaps($output);
+
+        if (! $input->getOption('keep-subjects')) {
+            $this->deleteAllEntities(Subject::class, $output);
+        }
+
+        if ($input->getOption('users')) {
+            $this->deleteAllEntities(User::class, $output);
+        }
+
+        $this->clearContentExtractCache($output);
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @param class-string $entityClassName
+     */
+    private function deleteAllEntities(string $entityClassName, OutputInterface $output): void
+    {
+        try {
+            $this->entityManager->createQueryBuilder()->delete($entityClassName, 'e')->getQuery()->execute();
+        } catch (Exception $exception) {
+            $output->writeln("<error>Error while deleting $entityClassName entities:</error>");
+            $output->writeln("<error>{$exception->getMessage()}</error>");
+
+            return;
+        }
+
+        $output->writeln("👍 All $entityClassName entities have been deleted");
+    }
+
+    public function removeElasticSearchIndex(string $indexName, OutputInterface $output): void
+    {
+        try {
+            $this->indexService->delete($indexName);
+        } catch (Exception $exception) {
+            $output->writeln('<error>Error while removing the ES index</error>');
+            $output->writeln("<error>{$exception->getMessage()}</error>");
+
+            return;
+        }
+
+        $output->writeln('👍 ElasticSearch index removed');
+    }
+
+    private function createElasticSearchIndex(string $indexName, OutputInterface $output): void
+    {
+        try {
+            $this->indexService->createLatestWithAliases($indexName);
+        } catch (Exception $exception) {
+            $output->writeln('<error>Error while recreating the ES index</error>');
+            $output->writeln("<error>{$exception->getMessage()}</error>");
+
+            return;
+        }
+
+        $output->writeln('👍 ElasticSearch index created');
+    }
+
+    private function clearQueues(OutputInterface $output): void
+    {
+        try {
+            foreach ($this->queueDsns as $queueDsn) {
+                $url = str_replace(['amqp', ':5672'], ['http', ':15672/api/queues'], $queueDsn) . '/contents';
+                $response = $this->httpClient->request('DELETE', $url);
+                if ($response->getStatusCode() !== 204) {
+                    throw new RuntimeException("Purging of queue $queueDsn failed");
+                }
+            }
+        } catch (Exception $exception) {
+            $output->writeln('<error>Error while purging the RabbitMQ queues</error>');
+            $output->writeln("<error>{$exception->getMessage()}</error>");
+
+            return;
+        }
+
+        $output->writeln('👍 RabbitMQ queues purged');
+    }
+
+    private function clearContentExtractCache(OutputInterface $output): void
+    {
+        $greetInput = new ArrayInput([
+            'command' => 'cache:pool:clear',
+            'pools' => ['content_extract_cache'],
+        ]);
+
+        $this->getApplication()?->doRun($greetInput, $output);
+    }
+
+    private function clearAllSitemaps(OutputInterface $output): void
+    {
+        $this->wooIndexSitemapService->cleanupAllSitemaps();
+
+        $output->writeln('👍 All WooIndex sitemap files and entities have been deleted');
+    }
+}

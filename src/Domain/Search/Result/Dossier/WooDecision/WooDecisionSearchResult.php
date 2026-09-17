@@ -1,0 +1,29 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Domain\Search\Result\Dossier\WooDecision;
+
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Decision\DecisionType;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\PublicationReason;
+use Shared\Domain\Search\Result\Dossier\AbstractDossierTypeSearchResult;
+use Shared\ValueObject\PlainDate;
+use Symfony\Component\Uid\Uuid;
+
+readonly class WooDecisionSearchResult extends AbstractDossierTypeSearchResult
+{
+    public function __construct(
+        Uuid $id,
+        string $dossierNumber,
+        string $documentPrefix,
+        string $title,
+        public ?DecisionType $decision,
+        public ?string $summary,
+        public ?PlainDate $publicationDate,
+        public ?PlainDate $decisionDate,
+        public ?int $documentCount,
+        public PublicationReason $publicationReason,
+    ) {
+        parent::__construct($id, $dossierNumber, $documentPrefix, $title);
+    }
+}

@@ -1,0 +1,15 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Domain\Publication\MainDocument;
+
+use RuntimeException;
+
+class MainDocumentAlreadyExistsException extends RuntimeException
+{
+    public function __construct()
+    {
+        parent::__construct('This dossier already has a main document');
+    }
+}

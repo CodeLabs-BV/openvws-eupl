@@ -1,0 +1,41 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Domain\Search\Result\SubType\WooDecisionDocument;
+
+use PHPUnit\Framework\TestCase;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Judgement;
+use Shared\Domain\Publication\SourceType;
+use Shared\Domain\Search\Result\SubType\WooDecisionDocument\DocumentViewModel;
+use Shared\ValueObject\DocumentNumber;
+use Shared\ValueObject\PlainDate;
+
+class DocumentViewModelTest extends TestCase
+{
+    public function testConstructorAndGetters(): void
+    {
+        $viewmodel = new DocumentViewModel(
+            $documentId = '123',
+            $documentNumber = DocumentNumber::fromString('foo-123'),
+            $filename = 'foo.txt',
+            $sourceType = SourceType::PDF,
+            $fileUploaded = true,
+            $fileSize = 456,
+            $pageCount = 12,
+            $judgement = Judgement::PUBLIC,
+            $date = PlainDate::today(),
+        );
+
+        self::assertEquals($documentId, $viewmodel->documentId);
+        self::assertSame($documentNumber, $viewmodel->documentNumber);
+        self::assertSame('foo-123', $viewmodel->documentNumber->toString());
+        self::assertEquals($filename, $viewmodel->fileInfo->getName());
+        self::assertEquals($sourceType->value, $viewmodel->fileInfo->getSourceType());
+        self::assertEquals($fileUploaded, $viewmodel->fileInfo->isUploaded());
+        self::assertEquals($fileSize, $viewmodel->fileInfo->getSize());
+        self::assertEquals($pageCount, $viewmodel->pageCount);
+        self::assertEquals($judgement, $viewmodel->judgement);
+        self::assertEquals($date, $viewmodel->documentDate);
+    }
+}

@@ -1,0 +1,90 @@
+# https;?/taskfile.dev
+version: '3.50.0'
+
+vars:
+  CERTS_BASE_IMAGE_NAME: ghcr.io/minvws/nl-rdo-woo-web-private/certs/base
+  CERTS_BUILDER_IMAGE_NAME: ghcr.io/minvws/nl-rdo-woo-web-private/certs/builder
+  CERTS_IMAGE_VERSION: local
+  G4_TRIAL_VERSION: v2.4
+
+tasks:
+
+  build:
+    desc: Build the certs container
+    cmds:
+      - task: :dc
+        vars:
+          SUB_CMD: build certs {{ .CLI_ARGS }}
+
+  shell:
+    desc: Open a shell within the certs container
+    cmds:
+      - task: build
+      - task: :dc
+        vars:
+          SUB_CMD: run --rm certs /bin/bash
+
+  shell:base:
+    desc: Open a shell within the certs container
+    cmds:
+      - docker build
+        --tag {{ .CERTS_BASE_IMAGE_NAME }}:{{ .CERTS_IMAGE_VERSION }}
+        --file docker/certs/Dockerfile
+        --target base
+        --build-arg G4_TRIAL_VERSION={{ .G4_TRIAL_VERSION }}
+        .
+      - docker run
+        --rm
+        --interactive
+        --tty
+        --volume {{ .BASE_PATH }}/docker/certs/config.yaml:/usr/src/g4-trial/config.yaml
+        --volume {{ .BASE_PATH }}/docker/certs/enrollments:/usr/src/enrollments
+        --volume {{ .BASE_PATH }}/docker/certs/scripts:/usr/src/scripts
+        {{ .CERTS_BASE_IMAGE_NAME }}:{{ .CERTS_IMAGE_VERSION }}
+        /bin/bash
+
+  gen:
+    desc: Generate the mTLS PKI (local) certificates
+    summary: |
+      Generate the mTLS PKI (local) certificates.
+
+      The files can be found at `docker/certs/generated`.
+    set: [e]
+    cmds:
+      - task: build
+      - rm -rf {{ .BASE_PATH }}/docker/certs/generated
+      - mkdir -p {{ .BASE_PATH }}/docker/certs/generated
+      - task: :dc
+        vars:
+          SUB_CMD: up -d certs
+      - task: :dc
+        vars:
+          SUB_CMD: cp certs:/usr/src/result/. {{ .BASE_PATH }}/docker/certs/generated
+      - task: :dc
+        vars:
+          SUB_CMD: rm --force --stop certs
+      - task: cp-certs-to-root-certs-dir
+        for:
+          var: LOCAL_TENANTS
+        vars:
+          CLIENT_NAME: '{{ .ITEM }}'
+      - task: cp-client-bundle-to-root-certs-dir
+
+  cp-certs-to-root-certs-dir:
+    internal: true
+    cmds:
+      - rm -f {{ .BASE_PATH }}/certs/dev/client-{{ .CLIENT_NAME }}.key
+      - rm -f {{ .BASE_PATH }}/certs/dev/client-{{ .CLIENT_NAME }}.pem
+      - cp {{ .BASE_PATH }}/docker/certs/generated/private/client-{{ .CLIENT_NAME }}.key {{ .BASE_PATH }}/certs/dev/client-{{ .CLIENT_NAME }}.key
+      - cp {{ .BASE_PATH }}/docker/certs/generated/client-{{ .CLIENT_NAME }}.pem {{ .BASE_PATH }}/certs/dev/client-{{ .CLIENT_NAME }}.pem
+    requires:
+      vars:
+        - name: CLIENT_NAME
+          enum:
+            ref: .LOCAL_TENANTS
+
+  cp-client-bundle-to-root-certs-dir:
+    internal: true
+    cmds:
+      - rm -rf {{ .BASE_PATH }}/certs/dev/client-bundle.pem
+      - cp {{ .BASE_PATH }}/docker/certs/generated/client-bundle.pem {{ .BASE_PATH }}/certs/dev/client-bundle.pem

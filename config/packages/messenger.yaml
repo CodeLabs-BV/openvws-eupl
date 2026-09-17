@@ -1,0 +1,118 @@
+framework:
+    messenger:
+        buses:
+            command_bus:
+                default_middleware:
+                    allow_no_handlers: true
+                middleware:
+                    - doctrine_ping_connection
+        default_bus: command_bus
+#        failure_transport: failed
+        serializer:
+            default_serializer: messenger.transport.symfony_serializer
+            symfony_serializer:
+                format: json
+                context: { }
+
+        transports:
+            sync: 'sync://'
+            high:
+                dsn: '%high_transport_dsn%'
+                options:
+                    auto_setup: true
+                    heartbeat: 60
+                    read_timeout: 130
+                    write_timeout: 130
+                    connect_timeout: 3
+                retry_strategy:
+                    max_retries: 3
+                    multiplier: 2
+
+            esupdater:
+                dsn: '%esupdater_transport_dsn%'
+                options:
+                    auto_setup: true
+                    heartbeat: 60
+                    read_timeout: 130
+                    write_timeout: 130
+                    connect_timeout: 3
+                retry_strategy:
+                    max_retries: 3
+                    multiplier: 2
+
+            ingestor:
+                dsn: '%ingestor_transport_dsn%'
+                options:
+                    auto_setup: true
+                    heartbeat: 60
+                    read_timeout: 130
+                    write_timeout: 130
+                    connect_timeout: 3
+                retry_strategy:
+                    max_retries: 3
+                    multiplier: 2
+
+            global:
+                dsn: '%global_transport_dsn%'
+                options:
+                    auto_setup: true
+                    heartbeat: 60
+                    read_timeout: 130
+                    write_timeout: 130
+                    connect_timeout: 3
+                retry_strategy:
+                    max_retries: 3
+                    multiplier: 2
+
+            api_documents:
+                dsn: '%api_documents_transport_dsn%'
+                options:
+                    auto_setup: true
+                    heartbeat: 60
+                    read_timeout: 130
+                    write_timeout: 130
+                    connect_timeout: 3
+                retry_strategy:
+                    max_retries: 3
+                    multiplier: 2
+
+        routing:
+            Shared\Domain\Search\Index\Rollover\InitiateElasticRolloverCommand: high
+            Shared\Domain\Search\Index\Rollover\SetElasticAliasCommand: high
+            Shared\Domain\Publication\Dossier\Type\WooDecision\ProductionReport\Command\ProductionReportProcessRunCommand: high
+            Shared\Domain\Publication\Dossier\Type\WooDecision\Inventory\Command\GenerateInventoryCommand: high
+            Shared\Domain\Publication\Dossier\Type\WooDecision\Inquiry\Command\UpdateInquiryLinksCommand: high
+            Shared\Domain\Publication\Dossier\Type\WooDecision\Inventory\Command\RemoveDocumentsCommand: high
+            Shared\Domain\Publication\Dossier\Command\DeleteDossierCommand: high
+            Shared\Domain\Publication\Dossier\Type\WooDecision\DocumentFile\Command\ProcessDocumentFileSetUploadsCommand: high
+            Shared\Domain\Publication\Dossier\Type\WooDecision\DocumentFile\Command\ProcessDocumentFileSetUpdatesCommand: high
+            Shared\Domain\Publication\Dossier\Type\WooDecision\DocumentFile\Command\ProcessDocumentFileUploadCommand: high
+            Shared\Domain\Publication\Dossier\Type\WooDecision\DocumentFile\Command\ProcessDocumentFileUpdateCommand: high
+            Shared\Domain\Publication\Dossier\Type\WooDecision\Document\Command\WithDrawDocumentCommand: high
+            Shared\Domain\Publication\Dossier\Type\WooDecision\Document\Command\WithDrawAllDocumentsCommand: high
+            Shared\Domain\Upload\Command\ValidateUploadCommand: high
+            Shared\Domain\Publication\Dossier\Command\SynchronizeDossierArtifactsCommand: high
+
+            Shared\Domain\Ingest\Process\Dossier\IngestAllDossiersCommand: ingestor
+            Shared\Domain\Ingest\Process\Dossier\IngestDossierCommand: ingestor
+            Shared\Domain\Ingest\Process\Pdf\IngestPdfCommand: ingestor           # Ingests a complete PDF document and fires a command for each page
+            Shared\Domain\Ingest\Process\TikaOnly\IngestTikaOnlyCommand: ingestor
+            Shared\Domain\Ingest\Process\PdfPage\IngestPdfPageCommand: ingestor   # Ingests a single PDF page from a PDF document
+            Shared\Domain\Ingest\Process\MetadataOnly\IngestMetadataOnlyCommand: ingestor
+            Shared\Domain\Publication\Dossier\Type\WooDecision\Inquiry\Command\GenerateInquiryInventoryCommand: ingestor
+
+            Shared\Domain\Search\Index\Dossier\IndexDossierCommand: esupdater     # Updates the dossier in the elastic index
+            Shared\Domain\Department\UpdateDepartmentCommand: esupdater             # Updates the dossier in the elastic index
+            Shared\Domain\Publication\Dossier\Type\WooDecision\Document\Command\RemoveDocumentCommand: esupdater
+            Shared\Domain\Publication\Attachment\Event\AttachmentCreatedEvent: esupdater
+            Shared\Domain\Publication\Attachment\Event\AttachmentUpdatedEvent: esupdater
+            Shared\Domain\Publication\Attachment\Event\AttachmentDeletedEvent: esupdater
+            Shared\Domain\Publication\MainDocument\Event\MainDocumentCreatedEvent: esupdater
+            Shared\Domain\Publication\MainDocument\Event\MainDocumentUpdatedEvent: esupdater
+            Shared\Domain\Publication\MainDocument\Event\MainDocumentDeletedEvent: esupdater
+            Shared\Domain\Search\Index\DeleteElasticDocumentCommand: esupdater
+            Shared\Domain\Publication\Subject\Event\SubjectUpdatedEvent: esupdater
+
+            Shared\Domain\Publication\BatchDownload\Command\GenerateBatchDownloadCommand: global
+
+            Shared\Domain\Upload\WooDecision\ProcessUploadedDocumentsCommand: api_documents

@@ -1,0 +1,23 @@
+services:
+    _defaults:
+        autowire: true      # Automatically injects dependencies in your services.
+        autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+        bind:
+            string $publicBaseUrl: '%public_base_url%'
+
+    Shared\Domain\WooIndex\Producer\Mapper\UrlMapper:
+        public: true
+    Shared\Domain\WooIndex\Producer\Repository\UrlRepository:
+        public: true
+
+    Shared\Domain\WooIndex\Producer\UrlProducer:
+        public: true
+
+    Shared\Domain\WooIndex\Builder\SitemapIndexBuilder:
+        public: true
+
+    Shared\Domain\WooIndex\Builder\SitemapBuilder:
+        public: true
+
+    Shared\Domain\WooIndex\WooIndex:
+        public: true

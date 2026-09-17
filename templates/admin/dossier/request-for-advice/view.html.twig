@@ -1,0 +1,41 @@
+{% extends 'admin/dossier/shared/view.html.twig' %}
+
+{% set aboutTitle = 'admin.global.request-for-advice_on' | trans %}
+
+{% set descriptionLabel = 'admin.dossiers.request-for-advice.description' | trans %}
+{% set internalReferenceLabel = 'admin.dossiers.request-for-advice.form.details.ref_int' | trans %}
+
+{% set dossierTypeTitle = 'dossier.type.request-for-advice' | trans %}
+{% set periodLabel = 'admin.dossiers.request-for-advice.date' | trans %}
+{% set summaryLabel = 'admin.dossiers.request-for-advice.summary' | trans %}
+{% set documentLabel = 'admin.dossiers.request-for-advice.document' | trans %}
+{% set completeFirstOpenStepTitle = ('admin.dossiers.request-for-advice.complete_step.' ~ workflowStatus.firstOpenStep.stepName.value | default) | trans %}
+
+{% set deleteTitle = 'admin.dossiers.request-for-advice.delete' | trans %}
+{% set deleteBullets = [
+    'admin.dossiers.request-for-advice.delete_bullet-1' | trans,
+    'admin.dossiers.request-for-advice.delete_bullet-2' | trans,
+    'admin.dossiers.request-for-advice.delete_bullet-3' | trans,
+] %}
+
+{% block dossier_link %}
+    {% if dossier.link is not empty %}
+        <twig:Admin:Definition term="{{ 'admin.dossiers.request-for-advice.link' | trans }}">
+            <a class="text-bhr-blue-800 underline" href="{{ dossier.link }}">{{ dossier.link }}</a>
+        </twig:Admin:Definition>
+    {% endif %}
+{% endblock %}
+
+{% block dossier_advisory_bodies %}
+    <twig:Admin:Definition term="{{ 'admin.dossiers.request_for_advice.advisory_bodies' | trans }}">
+        {% if dossier.advisoryBodies | length > 0 %}
+            <ul>
+                {% for party in dossier.advisoryBodies %}
+                    <li>{{ party }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>{{ 'admin.global.no_record' | trans }}</p>
+        {% endif %}
+    </twig:Admin:Definition>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends 'admin/base.html.twig' %}
+
+{% import "admin/macros/facet.html.twig" as macro %}
+
+{% set page_title = 'admin.decisions.manage' | trans %}
+
+{% block body %}
+<div class="bhr-container">
+    <twig:Admin:PageTitle title="{{ page_title }}" />
+
+    <div class="bhr-card">
+        {% include 'admin/shared/flash-messages.html.twig' %}
+
+        {% if dossiers | length > 0 %}
+            <table class="bhr-table">
+                <thead>
+                    <tr>
+                        <th scope="col">{{ 'admin.dossiers.action.column.dossier_number' | trans }}</th>
+                        <th scope="col">{{ 'admin.dossiers.action.column.type' | trans }}</th>
+                        <th scope="col">{{ 'admin.dossiers.action.column.status' | trans }}</th>
+                        <th scope="col">{{ 'admin.dossiers.action.column.id' | trans }}</th>
+                        <th scope="col">{{ 'admin.dossiers.action.column.title' | trans }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dossier in dossiers %}
+                        <tr>
+                            <td>
+                                <a class="bhr-a js-bhr-clickable-row-link" href="{{ path('app_admin_dossier_administration_details', {documentPrefix: dossier.documentPrefix, dossierNumber: dossier.dossierNumber}) }}">
+                                    {{ dossier.dossierNumber }}
+                                </a>
+                            </td>
+                            <td>
+                                {{ dossier.type | trans }}
+                            </td>
+                            <td>
+                                <twig:Admin:DossierStatusBadge status="{{ dossier.status }}" />
+                            </td>
+                            <td>
+                                {{ dossier.id }}
+                            </td>
+                            <td>
+                                {{ dossier.title }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="text-center">
+                {{ 'admin.dossiers.action.no_dossiers' | trans }}
+            </p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

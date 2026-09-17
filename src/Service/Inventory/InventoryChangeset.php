@@ -1,0 +1,140 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Service\Inventory;
+
+use OutOfBoundsException;
+use Shared\Exception\ProcessInventoryException;
+use Shared\ValueObject\DocumentNumber;
+use Webmozart\Assert\Assert;
+
+use function array_filter;
+use function array_key_exists;
+use function array_keys;
+use function array_map;
+use function array_reduce;
+use function count;
+use function key_exists;
+use function strtolower;
+
+class InventoryChangeset
+{
+    public const string ADDED = 'create';
+    public const string UPDATED = 'update';
+    public const string DELETED = 'delete';
+    public const string UNCHANGED = 'unchanged';
+
+    public function __construct(
+        /** @var array<string, string> */
+        private array $documentStatus = [],
+    ) {
+    }
+
+    public function markAsAdded(DocumentNumber $documentNumber): void
+    {
+        $this->setDocumentStatus($documentNumber->toString(), self::ADDED);
+    }
+
+    public function markAsUpdated(DocumentNumber $documentNumber): void
+    {
+        $this->setDocumentStatus($documentNumber->toString(), self::UPDATED);
+    }
+
+    public function markAsDeleted(DocumentNumber $documentNumber): void
+    {
+        $this->setDocumentStatus($documentNumber->toString(), self::DELETED);
+    }
+
+    public function markAsUnchanged(DocumentNumber $documentNumber): void
+    {
+        $this->setDocumentStatus($documentNumber->toString(), self::UNCHANGED);
+    }
+
+    public function hasNoChanges(): bool
+    {
+        $changes = array_filter(
+            $this->documentStatus,
+            static fn (string $status) => $status !== self::UNCHANGED,
+        );
+
+        return count($changes) === 0;
+    }
+
+    public function getStatus(DocumentNumber $documentNumber): string
+    {
+        $key = strtolower($documentNumber->toString());
+        if (! array_key_exists($key, $this->documentStatus)) {
+            throw new OutOfBoundsException("documentNumber $key not found in InventoryChangeset");
+        }
+
+        return $this->documentStatus[$key];
+    }
+
+    /**
+     * @return list<DocumentNumber>
+     */
+    public function getDeleted(): array
+    {
+        return array_map(
+            DocumentNumber::fromString(...),
+            array_keys(array_filter(
+                $this->documentStatus,
+                static fn (string $status): bool => $status === self::DELETED,
+            )),
+        );
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public function getCounts(): array
+    {
+        $counts = array_reduce(
+            array_keys($this->documentStatus),
+            function (array $totals, string $changeKey) {
+                $status = $this->documentStatus[$changeKey];
+
+                Assert::integer($totals[$status]);
+                $totals[$status]++;
+
+                return $totals;
+            },
+            [
+                self::ADDED => 0,
+                self::UPDATED => 0,
+                self::DELETED => 0,
+                self::UNCHANGED => 0,
+            ],
+        );
+
+        Assert::isMap($counts);
+        Assert::allInteger($counts);
+
+        return $counts;
+    }
+
+    public function getResultingTotalDocumentCount(): int
+    {
+        $counts = $this->getCounts();
+
+        return $counts[self::UNCHANGED] + $counts[self::UPDATED] + $counts[self::ADDED];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function getAll(): array
+    {
+        return $this->documentStatus;
+    }
+
+    private function setDocumentStatus(string $documentNumber, string $status): void
+    {
+        if (key_exists($documentNumber, $this->documentStatus)) {
+            throw ProcessInventoryException::forDuplicateDocumentNumber($documentNumber);
+        }
+
+        $this->documentStatus[strtolower($documentNumber)] = $status;
+    }
+}

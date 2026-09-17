@@ -1,0 +1,62 @@
+{{ form_start(form) }}
+    <div {{ vue_component('GenericController', {
+        componentName: 'MultiCombobox',
+
+        buttonText: 'Voeg partij toe',
+        buttonTextMultiple: 'Voeg nog een partij toe',
+        helpText: 'Geef de namen van de juridische entiteiten waartussen de overeenkomst is gesloten. Voer geen namen van personen in.',
+        label: 'Partij',
+        legend: 'Partijen in het convenant',
+        minLength: 2,
+        minValueLength: 2,
+        maxLength: 10,
+        maxValueLength: 100,
+        name: 'content_form[parties]',
+        options: departments,
+        submitErrors: partiesErrors,
+        values: dossier.parties,
+    }) }}>
+        <div class="min-h-14"></div>
+    </div>
+
+    {{ form_row(form.summary) }}
+
+    <twig:Admin:Publication:ManageNoticeNotPublic
+        canDelete="{{ hasNoticeNotPublic }}"
+        endpoint="{{ '/balie/api/dossiers/' ~ dossier.id ~ '/notice-not-public' }}"
+        formField="{{ form.noticeNotPublic }}"
+        grounds="{{ grounds }}"
+        hasMainDocument="{{ dossier.mainDocument is not null }}"
+    />
+
+    <twig:Admin:Publication:ManageDocument
+        canDelete="{{ canDeleteDocument }}"
+        documentType="{{ 'admin.dossiers.covenant.document' | trans }}"
+        documentTypes="{{ documentTypes }}"
+        endpoint="{{ '/balie/api/dossiers/' ~ dossier.id ~ '/covenant-document' }}"
+        fileLimits="{{ documentFileLimits | default([])}}"
+        formField="{{ form.document }}"
+        grounds="{{ grounds }}"
+        hasNoticeNotPublic="{{ hasNoticeNotPublic }}"
+        helpText="{{ 'admin.dossiers.covenant.form.content.document_help' | trans }}"
+        languages="{{ attachmentLanguages }}"
+        title="{{ 'admin.dossiers.covenant.form.content.document_label' | trans }}"
+        dossierId="{{ dossier.id }}"
+    />
+
+    {{ form_row(form.previous_version_link) }}
+
+    <twig:Admin:Publication:ManageAttachments
+        canDelete="{{ canDeleteAttachments }}"
+        documentTypes="{{ attachmentTypes }}"
+        endpoint="{{ '/balie/api/dossiers/' ~ dossier.id ~ '/covenant-attachments' }}"
+        fileLimits="{{ attachmentFileLimits | default([])}}"
+        grounds="{{ grounds }}"
+        helpText="{{ 'admin.dossiers.covenant.form.content.attachments_help' | trans }}"
+        languages="{{ attachmentLanguages }}"
+        dossierId="{{ dossier.id }}"
+    />
+
+    {% do form.parties.setRendered %}
+
+{{ form_end(form) }}

@@ -1,0 +1,84 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Domain\Search\Index\Dossier\Mapper;
+
+use DateTimeInterface;
+use Shared\Domain\Department\Department;
+use Shared\Domain\Publication\Dossier\AbstractDossier;
+use Shared\Domain\Publication\Subject\Subject;
+use Shared\Domain\Search\Index\ElasticDocument;
+use Shared\Domain\Search\Index\ElasticDocumentId;
+use Shared\Domain\Search\Index\ElasticDocumentType;
+use Shared\Domain\Search\Index\Schema\ElasticField;
+use Shared\Domain\Search\Index\Schema\ElasticObjectField;
+use Shared\Service\DateRangeConverter;
+use Symfony\Component\Uid\Uuid;
+
+readonly class DefaultDossierMapper implements ElasticDossierMapperInterface
+{
+    public function supports(AbstractDossier $dossier): bool
+    {
+        return true;
+    }
+
+    public function map(AbstractDossier $dossier): ElasticDocument
+    {
+        $id = ElasticDocumentId::forDossier($dossier);
+
+        return new ElasticDocument(
+            $id,
+            ElasticDocumentType::fromEntity($dossier),
+            null,
+            [
+                ElasticField::ID->value => $id,
+                ElasticField::DOSSIER_NUMBER->value => $dossier->getDossierNumber(),
+                ElasticField::PREFIXED_DOSSIER_NUMBER->value => PrefixedDossierNumber::forDossier($dossier),
+                ElasticField::TITLE->value => (string) $dossier->getTitle(),
+                ElasticField::STATUS->value => $dossier->getStatus(),
+                ElasticField::SUMMARY->value => $dossier->getSummary(),
+                ElasticField::DOCUMENT_PREFIX->value => $dossier->getDocumentPrefix(),
+                ElasticObjectField::DEPARTMENTS->value => $this->mapDepartments($dossier),
+                ElasticField::DATE_FROM->value => $dossier->getDateFrom()?->format(DateTimeInterface::ATOM),
+                ElasticField::DATE_TO->value => $dossier->getDateTo()?->format(DateTimeInterface::ATOM),
+                ElasticField::DATE_RANGE->value => [
+                    'gte' => $dossier->getDateFrom()?->format(DateTimeInterface::ATOM),
+                    'lte' => $dossier->getDateTo()?->format(DateTimeInterface::ATOM),
+                ],
+                ElasticField::DATE_PERIOD->value => DateRangeConverter::convertToString($dossier->getDateFrom(), $dossier->getDateTo()),
+                ElasticField::PUBLICATION_DATE->value => $dossier->getPublicationDate()?->format(DateTimeInterface::ATOM),
+                ElasticObjectField::SUBJECT->value => $this->mapSubject($dossier->getSubject()),
+                ElasticField::ORGANISATION_IDS->value => [$dossier->getOrganisation()->getId()],
+            ],
+        );
+    }
+
+    /**
+     * @return array<array-key, array{name: string, id: Uuid}>
+     */
+    private function mapDepartments(AbstractDossier $dossier): array
+    {
+        return $dossier->getDepartments()->map(
+            static fn (Department $department) => [
+                ElasticField::NAME->value => DepartmentFieldMapper::fromDepartment($department)->getIndexValue(),
+                ElasticField::ID->value => $department->getId(),
+            ],
+        )->toArray();
+    }
+
+    /**
+     * @return array<array-key, string|Uuid>|null
+     */
+    private function mapSubject(?Subject $subject): ?array
+    {
+        if ($subject === null) {
+            return null;
+        }
+
+        return [
+            ElasticField::ID->value => $subject->getId(),
+            ElasticField::NAME->value => $subject->getName(),
+        ];
+    }
+}

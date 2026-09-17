@@ -1,0 +1,59 @@
+{{ form_start(form) }}
+    {{ form_row(form.summary) }}
+    {{ form_row(form.link) }}
+
+    <div {{ vue_component('GenericController', {
+        componentName: 'MultiCombobox',
+        buttonText: 'admin.dossiers.request_for_advice.advisory_bodies.add' | trans,
+        buttonTextMultiple: '',
+        helpText: 'admin.dossiers.request_for_advice.advisory_bodies.help' | trans,
+        label: 'admin.dossiers.request_for_advice.advisory_bodies' | trans,
+        legend: 'admin.dossiers.request_for_advice.advisory_bodies' | trans,
+        minLength: 0,
+        minValueLength: 2,
+        maxLength: 1,
+        maxValueLength: 10,
+        name: 'content_form[advisoryBodies]',
+        options: departments,
+        submitErrors: advisoryBodiesErrors,
+        values: dossier.advisoryBodies,
+    }) }}>
+        <div class="min-h-14"></div>
+    </div>
+    {% do form.advisoryBodies.setRendered %}
+
+    <twig:Admin:Publication:ManageNoticeNotPublic
+        canDelete="{{ hasNoticeNotPublic }}"
+        endpoint="{{ '/balie/api/dossiers/' ~ dossier.id ~ '/notice-not-public' }}"
+        formField="{{ form.noticeNotPublic }}"
+        grounds="{{ grounds }}"
+        hasMainDocument="{{ dossier.mainDocument is not null }}"
+    />
+
+    <twig:Admin:Publication:ManageDocument
+        canDelete="{{ canDeleteDocument }}"
+        documentType="{{ 'admin.dossiers.request-for-advice.document' | trans }}"
+        documentTypes="{{ documentTypes }}"
+        endpoint="{{ '/balie/api/dossiers/' ~ dossier.id ~ '/request-for-advice-document' }}"
+        fileLimits="{{ documentFileLimits | default([])}}"
+        formField="{{ form.document }}"
+        grounds="{{ grounds }}"
+        hasNoticeNotPublic="{{ hasNoticeNotPublic }}"
+        helpText="{{ 'admin.dossiers.request-for-advice.form.content.document_help' | trans }}"
+        languages="{{ attachmentLanguages }}"
+        title="{{ 'admin.dossiers.request-for-advice.form.content.document_label' | trans }}"
+        dossierId="{{ dossier.id }}"
+    />
+
+    <twig:Admin:Publication:ManageAttachments
+        canDelete="{{ canDeleteAttachments }}"
+        documentTypes="{{ attachmentTypes }}"
+        endpoint="{{ '/balie/api/dossiers/' ~ dossier.id ~ '/request-for-advice-attachments' }}"
+        fileLimits="{{ attachmentFileLimits | default([])}}"
+        grounds="{{ grounds }}"
+        helpText="{{ 'admin.dossiers.request-for-advice.form.content.attachments_help' | trans }}"
+        languages="{{ attachmentLanguages }}"
+        dossierId="{{ dossier.id }}"
+    />
+
+{{ form_end(form) }}

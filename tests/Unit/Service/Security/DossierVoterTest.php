@@ -1,0 +1,83 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Service\Security;
+
+use Mockery;
+use Shared\Domain\Publication\Dossier\DossierStatus;
+use Shared\Domain\Publication\Dossier\Type\Covenant\Covenant;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecision;
+use Shared\Service\Security\DossierVoter;
+use Shared\Tests\Unit\UnitTestCase;
+use stdClass;
+use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
+
+class DossierVoterTest extends UnitTestCase
+{
+    private DossierVoter $voter;
+
+    protected function setUp(): void
+    {
+        $this->voter = new DossierVoter();
+
+        parent::setUp();
+    }
+
+    public function testAbstainForUnknownAttribute(): void
+    {
+        $token = Mockery::mock(TokenInterface::class);
+
+        self::assertEquals(
+            VoterInterface::ACCESS_ABSTAIN,
+            $this->voter->vote($token, new WooDecision(), ['foo']),
+        );
+    }
+
+    public function testAbstainForWooDecision(): void
+    {
+        $token = Mockery::mock(TokenInterface::class);
+
+        self::assertEquals(
+            VoterInterface::ACCESS_ABSTAIN,
+            $this->voter->vote($token, new WooDecision(), [DossierVoter::VIEW]),
+        );
+    }
+
+    public function testAbstainForUnknownSubject(): void
+    {
+        $token = Mockery::mock(TokenInterface::class);
+
+        self::assertEquals(
+            VoterInterface::ACCESS_ABSTAIN,
+            $this->voter->vote($token, new stdClass(), [DossierVoter::VIEW]),
+        );
+    }
+
+    public function testAccessGrantedForPublishedDossier(): void
+    {
+        $token = Mockery::mock(TokenInterface::class);
+
+        $dossier = Mockery::mock(Covenant::class);
+        $dossier->expects('getStatus')->andReturn(DossierStatus::PUBLISHED);
+
+        self::assertEquals(
+            VoterInterface::ACCESS_GRANTED,
+            $this->voter->vote($token, $dossier, [DossierVoter::VIEW]),
+        );
+    }
+
+    public function testAccessDeniedForUnPublishedDossier(): void
+    {
+        $token = Mockery::mock(TokenInterface::class);
+
+        $dossier = Mockery::mock(Covenant::class);
+        $dossier->expects('getStatus')->andReturn(DossierStatus::CONCEPT);
+
+        self::assertEquals(
+            VoterInterface::ACCESS_DENIED,
+            $this->voter->vote($token, $dossier, [DossierVoter::VIEW]),
+        );
+    }
+}

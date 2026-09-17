@@ -1,0 +1,305 @@
+# https://taskfile.dev
+version: '3.50.0'
+
+includes:
+  docs:
+    taskfile: ./docs/Taskfile.docs.yml
+    dir: ./docs
+  minio: ./taskfiles/Taskfile.minio.yml
+  api: ./taskfiles/Taskfile.api.yml
+  certs: ./taskfiles/Taskfile.certs.yml
+  build: ./taskfiles/Taskfile.build.yml
+  composer: ./taskfiles/Taskfile.composer.yml
+  npm: ./taskfiles/Taskfile.npm.yml
+  ci: ./taskfiles/Taskfile.ci.yml
+  db: ./taskfiles/Taskfile.db.yml
+  console:
+    taskfile: ./taskfiles/Taskfile.console.yml
+    aliases: [ app ]
+  rf:
+    taskfile: ./tests/robot_framework/Taskfile.rf.yml
+    dir: ./tests/robot_framework
+  st:
+    taskfile: ./tests/schemathesis/Taskfile.schemathesis.yml
+    dir: ./tests/schemathesis
+
+vars:
+  BASE_PATH:
+    sh: pwd
+  MINVWS_PUBLICATION_API_URL: https://localhost:8443
+  MINFIN_PUBLICATION_API_URL: https://localhost:8444
+  LOCAL_TENANTS:
+    - minvws
+    - minfin
+  ALL_TENANTS:
+    - minvws
+    - minfin
+    - minbuza
+  APPLICATION_IDS:
+    - admin
+    - public
+    - publication_api
+    - worker
+    - shared
+
+# env:
+#   BUILDKIT_PROGRESS: plain
+
+silent: true
+
+tasks:
+
+  dc:
+    vars:
+      FIXUID:
+        sh: echo ${FIXUID:-$(id -u)}
+      FIXGID:
+        sh: echo ${FIXGID:-$(id -g)}
+    cmds:
+      - FIXUID={{ .FIXUID }} FIXGID={{ .FIXGID }} docker compose {{ .SUB_CMD }}
+
+  dc:run:*:
+    interactive: true
+    vars:
+      SERVICE: '{{ index .MATCH 0 }}'
+      USER_FLAG: '{{ (ne (.NON_ROOT | default "true") "false") | ternary " --user $(id -u):$(id -g)" "" }}'
+      RUN_FLAGS: '{{ .RUN_FLAGS | default "" }}'
+      COMPOSE_SERVICES:
+        sh: COMPOSE_PROFILES="*" docker compose config --services
+    cmds:
+      - task: dc
+        vars:
+          SUB_CMD: 'run --rm {{ .USER_FLAG }} {{ .RUN_FLAGS }} {{ .SERVICE }} {{ .SUB_CMD }} {{ .CLI_ARGS }}'
+    requires:
+      vars:
+        - name: SERVICE
+          enum:
+            ref: .COMPOSE_SERVICES | splitLines | compact
+
+  dc:exec:*:
+    interactive: true
+    vars:
+      SERVICE: '{{ index .MATCH 0 }}'
+      USER_FLAG: '{{ (ne (.NON_ROOT | default "true") "false") | ternary " --user $(id -u):$(id -g)" "" }}'
+      EXEC_FLAGS: '{{ .EXEC_FLAGS | default "" }}'
+      COMPOSE_SERVICES:
+        sh: COMPOSE_PROFILES="*" docker compose config --services
+    cmds:
+      - task: dc
+        vars:
+          SUB_CMD: 'exec {{ .USER_FLAG }} {{ .EXEC_FLAGS }} {{ .SERVICE }} {{ .SUB_CMD }}'
+    requires:
+      vars:
+        - name: SERVICE
+          enum:
+            ref: .COMPOSE_SERVICES | splitLines | compact
+
+  dc:pull:
+    desc: Pull all docker images
+    cmds:
+      - task: dc
+        vars: { SUB_CMD: '--profile "*" pull --include-deps --policy missing' }
+
+  dc:rebuild:
+    desc: Rebuild all docker images
+    cmds:
+      - task: dc
+        vars: { SUB_CMD: '--profile "*" build --build-arg USER_UID=$(id -u) --no-cache' }
+
+  setup:
+    desc: Setup development environment
+    interactive: true
+    cmds:
+      - task: d:create-cache-volumes
+      - task: env
+      - task: dc:pull
+      - task: certs:gen
+      - task: composer:install
+      - task: dc
+        vars: { SUB_CMD: 'up -d' }
+      - task: dc:exec:admin
+        vars: { SUB_CMD: 'bash -c "wait-for-it postgres:5432 --timeout=0 --strict -- wait-for-it rabbitmq:5672 --timeout=0 --strict -- wait-for-it elasticsearch:9200 --timeout=0 --strict -- echo \"Done waiting\""' }
+      - task: minio:create-buckets
+      - task: console:migrate
+        vars: { TENANT: '{{ .ITEM }}' }
+        for: { var: LOCAL_TENANTS }
+      - task: console:loadfixtures
+        vars: { TENANT: '{{ .ITEM }}' }
+        for: { var: LOCAL_TENANTS }
+      - task: dc:run:admin
+        vars: { SUB_CMD: 'bash -c "curl -u elastic:secret -X GET \"elasticsearch:9200/_cluster/health?wait_for_status=yellow&timeout=30s\""' }
+      - task: dc:run:elasticsearch
+        vars: { SUB_CMD: '/init/init.sh' }
+      - task: console:cmd:woopie:index:create
+        vars:
+          TENANT: '{{ .ITEM }}'
+          SUB_CMD: '{{ .ITEM }}-initial latest --read --write'
+        for: { var: LOCAL_TENANTS }
+      - task: npm:install
+      - task: npm:script:build
+      - task: docs:build:all
+
+  setup:if-not-exist:
+    vars:
+      PROJECT_EXISTS:
+        sh: 'docker compose ps --all --services'
+    status:
+      - test ! -z "{{ .PROJECT_EXISTS }}"
+    cmds:
+      - task: setup
+      - task: console:migrate:test
+        vars: { TENANT: '{{ .ITEM }}' }
+        for: { var: LOCAL_TENANTS }
+
+  shell:
+    desc: Open a shell in admin service
+    cmds:
+      - task: dc
+        vars: { SUB_CMD: "exec admin bash" }
+
+  shell:*:
+    desc: Open a shell in a running service
+    vars:
+      SERVICE: "{{ index .MATCH 0 }}"
+      COMPOSE_SERVICES:
+        sh: COMPOSE_PROFILES="*" docker compose config --services
+    cmds:
+      - task: dc
+        vars: { SUB_CMD: 'exec {{ .SERVICE }} bash' }
+    requires:
+      vars:
+        - name: SERVICE
+          enum:
+            ref: .COMPOSE_SERVICES | splitLines | compact
+
+  up:
+    desc: Start development environment
+    cmds:
+      - task: d:create-cache-volumes
+      - task: setup:if-not-exist
+      - task: dc
+        vars: { SUB_CMD: 'up -d' }
+
+  stop:
+    desc: Stop development environment
+    cmds:
+      - task: dc
+        vars: { SUB_CMD: 'stop' }
+
+  restart:
+    desc: Restart development environment
+    cmds:
+      - task: stop
+      - task: up
+
+  down:
+    desc: Down the development environment
+    cmds:
+      - task: dc
+        vars: { SUB_CMD: '--profile "*" down --volumes --remove-orphans' }
+      - task: d:remove-legacy-cache-volumes
+
+  reset:
+    desc: Reset the development environment
+    cmds:
+      - task: down
+      - task: down
+      - rm -rf var
+      - rm -rf tests/robot_framework/secrets
+      - task: dc:pull
+      - task: dc:rebuild
+      - task: up
+
+  ps:
+    desc: Show all project containers
+    cmds:
+      - task: dc
+        vars: { SUB_CMD: 'ps -a' }
+
+  env:
+    desc: Manage dotenvs
+    run: once
+    cmds:
+      - cmd: cp .env.e2e .env.dev.local
+        if: test "$GITHUB_ACTIONS" = "true"
+        platforms: [linux]
+
+  env:e2e:enable:
+    internal: true
+    cmds:
+      - cmd: '[ -f .env.dev.local ] && [ ! -f .env.dev.local.bak ] && mv .env.dev.local .env.dev.local.bak || true'
+        if: test "$GITHUB_ACTIONS" != "true"
+      - cmd: cp .env.e2e .env.dev.local
+        if: test "$GITHUB_ACTIONS" != "true"
+
+  env:e2e:disable:
+    internal: true
+    cmds:
+      - cmd: rm -f .env.dev.local
+        if: test "$GITHUB_ACTIONS" != "true"
+      - cmd: '[ -f .env.dev.local.bak ] && mv .env.dev.local.bak .env.dev.local || true'
+        if: test "$GITHUB_ACTIONS" != "true"
+
+  refresh:
+    desc: (re) Pull dependencies, run migrations, build front-end and sync .env
+    aliases: [update]
+    cmds:
+      - task: stop
+      - rm -rf var
+      - task: d:create-cache-volumes
+      - task: up
+      - task: composer:install
+      - task: console:migrate
+        vars: { TENANT: '{{ .ITEM }}' }
+        for: { var: LOCAL_TENANTS }
+      - task: console:migrate:test
+        vars: { TENANT: '{{ .ITEM }}' }
+        for: { var: LOCAL_TENANTS }
+      - task: npm:install
+      - task: npm:script:build
+      - task: docs:build:all
+      - task: minio:create-buckets
+      - task: postdeploy
+        vars: { APPLICATION_ID: "{{ .ITEM }}" }
+        for: [worker, publication_api, admin]
+
+  d:create-cache-volumes:
+    run: once
+    vars:
+      PROJECT_NAME:
+        sh: docker compose config --environment | grep '^COMPOSE_PROJECT_NAME=' | cut -d= -f2-
+    cmds:
+      - docker volume create {{ .PROJECT_NAME }}_woo_composer
+      - docker volume create {{ .PROJECT_NAME }}_woo_npm
+
+  # TODO: temporary, remove once everyone has run "task down" at least once.
+  # The composer and npm caches used to be shared between checkouts as
+  # "woo_composer" and "woo_npm"; they are now named per compose project. Errors
+  # are ignored: either the volume is already gone, or another checkout that does
+  # not have this change yet still holds it.
+  d:remove-legacy-cache-volumes:
+    internal: true
+    cmds:
+      - for: [woo_composer, woo_npm]
+        cmd: docker volume rm {{ .ITEM }} 2> /dev/null
+        ignore_error: true
+
+  postdeploy:
+    desc: Run postdeploy script
+    cmds:
+      - task: dc:exec:admin
+        vars: { SUB_CMD: 'bin/console --tenant=minvws --id={{ .APPLICATION_ID }} woopie:post-deploy' }
+    requires:
+      vars:
+        - name: APPLICATION_ID
+          enum:
+            ref: .APPLICATION_IDS
+
+  cleansheet:
+    desc: Clears dossiers and inquiries (with related data) from the database. Also clears ES index and RabbitMq message queues.
+    vars:
+      TENANT: '{{.TENANT | default "minvws"}}'
+    cmds:
+      - task: dc:exec:admin
+        vars: { SUB_CMD: 'bin/console --tenant={{ .TENANT }} woopie:dev:clean-sheet --index {{ .TENANT }}-initial --force {{ .CLI_ARGS }}' }
+      - task: minio:clear-buckets

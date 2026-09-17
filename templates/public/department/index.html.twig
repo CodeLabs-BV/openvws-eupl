@@ -1,0 +1,19 @@
+{% extends 'public/base.html.twig' %}
+
+{% set page_title = 'public.global.label.departments' | trans %}
+
+{% block body %}
+    <div class="woo-container">
+        <div class="woo-rich-text woo-readable-width">
+            <h1>{{ 'public.global.label.departments' | trans }}</h1>
+            <p>{{ 'public.department.description' | trans }}</p>
+            <p>{{ 'public.department.view_by_department' | trans }}</p>
+        </div>
+
+        {% if departments | length > 0 %}
+            <div class="pt-8" data-e2e-name="departments">
+                <twig:Public:DepartmentsList departments="{{ departments }}" titleClass="woo-h3 sm:font-normal mb-6" />
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

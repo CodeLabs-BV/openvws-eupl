@@ -1,0 +1,50 @@
+{% extends 'public/base.html.twig' %}
+
+{% set page_title = 'public.global.label.home' | trans() %}
+
+{% block body %}
+    <div class="woo-container woo-container--sm">
+        <div class="pb-8 lg:pb-16 lg:-mt-4">
+            <section class="woo-rich-text">
+                <h1>
+                    <span class="block mb-1">{{ 'public.intro.label.oga' | trans }}</span>
+                    <span class="font-normal">{{ intro.title }}</span>
+                </h1>
+
+                {{ intro.content | render_markdown }}
+
+                <p><twig:Public:ArrowedBoldLink to="{{ path('app_about') }}">{{ 'public.intro.more_about_platform' | trans }}</twig:Public:ArrowedBoldLink></p>
+            </section>
+        </div>
+    </div>
+
+    {% import "public/macros/facet.html.twig" as macro %}
+    <section class="bg-woo-gray-100 py-8 lg:py-16">
+        <div class="woo-container woo-container--sm">
+            <h2 class="woo-h2 woo-readable-width pb-10">{{ 'public.browse.title' | trans | raw }}</h2>
+
+            {{ macro.facet_preview('categories.category.subject' | trans(), constant('Shared\\Service\\Search\\Model\\FacetKey::SUBJECT'), facets, 'categories.category.subject.go_to_plural' | trans) }}
+            {{ macro.facet_preview('categories.category.type' | trans, constant('Shared\\Service\\Search\\Model\\FacetKey::TYPE'), facets, 'categories.category.type.go_to_plural' | trans) }}
+
+            <p class="text-right">
+                <twig:Public:ArrowedBoldLink to="{{ path('app_browse') }}">{{ 'categories.label.all-categories' | trans }}</twig:Public:ArrowedBoldLink>
+            </p>
+        </div>
+    </section>
+
+    <section class="pt-8 lg:pt-16">
+        <div class="woo-container woo-container--sm">
+            <twig:Public:SubjectLandingPagesList subjects="{{ subjectsWithPublishedLandingPage }}" hasMore="{{ hasMoreSubjectsWithPublishedLandingPage }}" />
+
+            <twig:Public:DepartmentsList departments="{{ departments }}" spacingClass="pb-16" titleClass="woo-h2 woo-h2-spacing" />
+
+            <div class="woo-rich-text">
+                <h2>{{ other_publications.title }}</h2>
+                {{ other_publications.content | render_markdown }}
+
+                <h2>{{ woo_request.title }}</h2>
+                {{ woo_request.content | render_markdown }}
+            </div>
+        </div>
+    </section>
+{% endblock %}

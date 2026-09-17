@@ -1,0 +1,11 @@
+---
+profile: profiles/G4TRIALEEPrivGTLSSYS2025.yaml
+subject:
+  C: NL
+  O: TRIAL MINVWS
+  CN: TRIAL MINVWS
+  organizationIdentifier: NTRNL-99999991  # This is the KvK Registration number in an ETSI format
+subjectAltNames:
+  - localhost
+  - publication-api-minvws.local
+  - publication-api-minfin.local

@@ -1,0 +1,151 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Admin\Api\Admin\Publication\Search;
+
+use InvalidArgumentException;
+use Shared\Domain\Publication\Attachment\ViewModel\Attachment;
+use Shared\Domain\Publication\Dossier\DossierRepository;
+use Shared\Domain\Publication\Dossier\Type\DossierReference;
+use Shared\Domain\Publication\MainDocument\ViewModel\MainDocument;
+use Shared\Domain\Search\Index\ElasticDocumentType;
+use Shared\Domain\Search\Query\SearchResultType;
+use Shared\Domain\Search\Result\Dossier\AbstractDossierTypeSearchResult;
+use Shared\Domain\Search\Result\Dossier\DossierSearchResultEntry;
+use Shared\Domain\Search\Result\SubType\SubTypeSearchResultEntry;
+use Shared\Domain\Search\Result\SubType\WooDecisionDocument\DocumentViewModel;
+use Shared\Service\DossierWizard\WizardStatusFactory;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Webmozart\Assert\Assert;
+
+use function array_map;
+use function array_values;
+use function in_array;
+use function sprintf;
+
+readonly class SearchResultDtoFactory
+{
+    public function __construct(
+        private UrlGeneratorInterface $urlGenerator,
+        private WizardStatusFactory $wizardStatusFactory,
+        private DossierRepository $dossierRepository,
+    ) {
+    }
+
+    public function make(object $entry): SearchResultDto
+    {
+        return match (true) {
+            $entry instanceof DossierSearchResultEntry => $this->fromDossierSearchResult($entry),
+            $entry instanceof SubTypeSearchResultEntry => $this->fromSubTypeSearchResult($entry),
+            default => throw new InvalidArgumentException(sprintf('Unsupported search result entry given: "%s"', $entry::class)),
+        };
+    }
+
+    private function fromSubTypeSearchResult(SubTypeSearchResultEntry $entry): SearchResultDto
+    {
+        if (in_array($entry->getType(), ElasticDocumentType::getMainDocumentTypes(), true)) {
+            return $this->fromMainDocumentEntry($entry);
+        }
+
+        return match ($entry->getType()) {
+            ElasticDocumentType::WOO_DECISION_DOCUMENT => $this->fromDocumentEntry($entry),
+            ElasticDocumentType::ATTACHMENT => $this->fromAttachmentEntry($entry),
+            default => throw new InvalidArgumentException(sprintf('Unsupported subtype search result given: "%s"', $entry::class)),
+        };
+    }
+
+    /**
+     * @param array<array-key,object> $entities
+     *
+     * @return list<SearchResultDto>
+     */
+    public function makeCollection(array $entities): array
+    {
+        return array_values(array_map(
+            $this->make(...),
+            $entities,
+        ));
+    }
+
+    private function fromDossierSearchResult(DossierSearchResultEntry $entry): SearchResultDto
+    {
+        $dossier = $entry->getDossier();
+        Assert::isInstanceOf($dossier, AbstractDossierTypeSearchResult::class);
+
+        return new SearchResultDto(
+            id: $dossier->id->toRfc4122(),
+            type: SearchResultType::DOSSIER,
+            title: $dossier->title,
+            link: $this->urlGenerator->generate(
+                'app_admin_dossier',
+                ['documentPrefix' => $dossier->documentPrefix, 'dossierNumber' => $dossier->dossierNumber],
+            ),
+            number: $dossier->dossierNumber,
+        );
+    }
+
+    private function fromDocumentEntry(SubTypeSearchResultEntry $entry): SearchResultDto
+    {
+        $dossier = $entry->getDossiers()[0];
+        /** @var DocumentViewModel $document */
+        $document = $entry->getViewModel();
+        $documentNumber = $document->documentNumber->toString();
+
+        return new SearchResultDto(
+            id: $documentNumber,
+            type: SearchResultType::DOCUMENT,
+            title: $document->fileInfo->getName() ?? '',
+            link: $this->urlGenerator->generate(
+                'app_admin_dossier_woodecision_document',
+                [
+                    'documentPrefix' => $dossier->getDocumentPrefix(),
+                    'dossierNumber' => $dossier->getDossierNumber(),
+                    'documentNumber' => $documentNumber,
+                ],
+            ),
+            number: $documentNumber,
+        );
+    }
+
+    private function fromAttachmentEntry(SubTypeSearchResultEntry $entity): SearchResultDto
+    {
+        $dossier = $entity->getDossiers()[0];
+        /** @var Attachment $attachment */
+        $attachment = $entity->getViewModel();
+
+        return new SearchResultDto(
+            id: $attachment->id,
+            type: SearchResultType::ATTACHMENT,
+            title: $attachment->name ?? '',
+            link: $this->getMainDocumentAndAttachmentUrl($dossier),
+        );
+    }
+
+    private function fromMainDocumentEntry(SubTypeSearchResultEntry $entity): SearchResultDto
+    {
+        $dossier = $entity->getDossiers()[0];
+        /** @var MainDocument $mainDocument */
+        $mainDocument = $entity->getViewModel();
+
+        return new SearchResultDto(
+            id: $mainDocument->id,
+            type: SearchResultType::MAIN_DOCUMENT,
+            title: $mainDocument->name ?? '',
+            link: $this->getMainDocumentAndAttachmentUrl($dossier),
+        );
+    }
+
+    private function getMainDocumentAndAttachmentUrl(DossierReference $dossierReference): string
+    {
+        $dossier = $this->dossierRepository->findOneByPrefixAndDossierNumber(
+            $dossierReference->getDocumentPrefix(),
+            $dossierReference->getDossierNumber(),
+        );
+
+        return $this->urlGenerator->generate(
+            $this->wizardStatusFactory->getWizardStatus($dossier)->getAttachmentStep()->getRouteName(),
+            ['documentPrefix' => $dossierReference->getDocumentPrefix(), 'dossierNumber' => $dossierReference->getDossierNumber()],
+        );
+    }
+}

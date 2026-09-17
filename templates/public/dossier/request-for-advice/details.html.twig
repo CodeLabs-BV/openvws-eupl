@@ -1,0 +1,12 @@
+{% extends 'public/dossier/shared/details.html.twig' %}
+
+{% set tagline = 'public.dossiers.request-for-advice.tagline' | trans %}
+{% set description = 'public.dossiers.request-for-advice.description' | trans %}
+
+{% block attachments %}
+    {% include 'public/dossier/shared/attachments.html.twig' with {'title': 'public.dossiers.request-for-advice.attachments_for' | trans} %}
+{% endblock %}
+
+{% block about %}
+    {% include 'public/dossier/request-for-advice/snippets/about.html.twig' %}
+{% endblock %}

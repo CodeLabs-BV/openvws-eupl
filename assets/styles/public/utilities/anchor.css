@@ -1,0 +1,33 @@
+@utility woo-a {
+  @apply text-woo-dark-blue-600 underline;
+  @apply visited:text-woo-ruby-red-800 visited:hover-focus:text-woo-ruby-red-800;
+}
+
+@utility woo-a--reverse-underline {
+  @apply no-underline hover-focus:underline;
+}
+
+@utility woo-a--with-icon-after {
+  @apply woo-a;
+
+  &::after {
+    @apply content-[''] inline-block w-6 h-6 ml-1 relative top-px align-text-bottom;
+    @apply bg-woo-dark-blue-600;
+    @apply visited:bg-woo-ruby-red-800 visited:hover-focus:bg-woo-ruby-red-800;
+  }
+}
+
+@utility woo-a-email {
+  @apply woo-a--with-icon-after;
+
+  &::after {
+    mask: url('@img/public/envelope.svg');
+    content: ' via e-mail';
+  }
+}
+
+@utility woo-a--search-result {
+  @apply text-woo-dark-green-600
+        hover-focus:no-underline
+        visited:text-woo-dark-green-700 visited:hover-focus:text-woo-dark-green-700;
+}

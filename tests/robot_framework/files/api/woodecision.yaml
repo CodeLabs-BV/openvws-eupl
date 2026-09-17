@@ -1,0 +1,667 @@
+baseline:
+  skip: false
+  tags: []
+  request:
+    body:
+      decision: public
+      departmentId: <ROBOT SELECT>
+      dateFrom: <ROBOT DATE -14>
+      dateTo: <ROBOT DATE -7>
+      dossierNumber: <ROBOT RANDOMIZE>
+      previewDate: <ROBOT DATE +0>
+      publicationDate: <ROBOT DATE +0>
+      reason: woo_request
+      subjectId: <ROBOT SELECT>
+      summary: |
+        Officer factor language reveal Mrs color space. Always conference themselves study over.
+        Seem happen civil begin that out. Occur either couple parent appear operation hair simple.
+      title: <ROBOT RANDOMIZE>
+      mainDocument:
+        fileName: dummy.txt
+        type: c_4f50ca9c
+        formalDate: <ROBOT DATE -14>
+        grounds: []
+        language: NLD
+      attachments:
+        - externalId: <PYTHON GUID>
+          fileName: kranten artikel.txt
+          formalDate: <ROBOT DATE -12>
+          grounds: []
+          language: NLD
+          type: c_c2f56984
+        - externalId: <PYTHON GUID>
+          fileName: bijbehorende vergunning.txt
+          formalDate: <ROBOT DATE -25>
+          grounds: []
+          language: NLD
+          type: c_002fc258
+      documents:
+       - externalId: <PYTHON GUID>
+         inquiryNumbers: [E2E-CASE-001]
+         documentDate: "2020-06-01"
+         documentId: <ROBOT RANDOM INT>
+         familyId: 333
+         fileName: quality.doc
+         grounds: [<ROBOT RANDOMIZE>]
+         isSuspended: false
+         judgement: public
+         links: []
+         publicationContext: "2025-01"
+         refersTo: []
+         remark: "Niets op aan te merken"
+         sourceType: doc
+         threadId: 12345
+       - externalId: <PYTHON GUID>
+         inquiryNumbers: [E2E-CASE-001, E2E-CASE-333]
+         documentDate: "2020-06-02"
+         documentId: <ROBOT RANDOM INT>
+         familyId: 333
+         fileName: Dit document is meesterlijk.doc
+         grounds: [<ROBOT RANDOMIZE>]
+         isSuspended: false
+         judgement: public
+         links: []
+         publicationContext: "2025-01"
+         refersTo: []
+         remark: "Niets op aan te merken"
+         sourceType: doc
+         threadId: 12345
+       - externalId: <PYTHON GUID>
+         inquiryNumbers: [E2E-CASE-001, E2E-CASE-333]
+         documentDate: "2020-06-03"
+         documentId: <ROBOT RANDOM INT>
+         familyId: 333
+         fileName: leipste slides.pptx
+         grounds: [<ROBOT RANDOMIZE>]
+         isSuspended: false
+         judgement: public
+         links: []
+         publicationContext: "2025-01"
+         refersTo: []
+         remark: "Niets op aan te merken"
+         sourceType: spreadsheet
+         threadId:
+    files:
+      mainDocument:
+        file: files/dummy.txt
+        expected_response_status: 204
+      attachments:
+        - externalId: <PYTHON GUID>
+          file: files/dummy.txt
+          expected_response_status: 204
+        - externalId: <PYTHON GUID>
+          file: files/dummy.txt
+          expected_response_status: 204
+      documents:
+        - externalId: <PYTHON GUID>
+          file: files/dummy.txt
+          expected_response_status: 204
+        - externalId: <PYTHON GUID>
+          file: files/dummy.txt
+          expected_response_status: 204
+        - externalId: <PYTHON GUID>
+          file: files/dummy.txt
+          expected_response_status: 204
+    expected_response_status: 200
+    expected_publication_status: published
+    reuse_previous_request: false
+
+testcases:
+- title: Happy flow
+  steps:
+    - name: Create dossier
+      request: {}
+
+- title: Happy flow with deep public validation
+  steps:
+    - name: Create dossier
+      request: {}
+    - name: Deeply validate dossier on public
+      keyword:
+        name: Deeply Validate WooDecision On Public
+
+- title: Create a dossier without uploading a main document
+  steps:
+    - name: Create dossier
+      request:
+        files:
+          mainDocument:
+        expected_publication_status: concept
+    - name: Check in browser
+      keyword:
+        name: Verify WooDecision In Admin
+
+- title: Create a non-public dossier
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          decision: not_public
+
+- title: Create a nothing-found dossier
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          decision: nothing_found
+          attachments: []
+          documents: []
+        files:
+          attachments: []
+          documents: []
+        expected_publication_status: published
+
+- title: Create dossier with a TXT main document
+  steps:
+    - name: Create dossier
+      request:
+        files:
+          mainDocument:
+            file: files/dummy.txt
+            expected_response_status: 204
+
+- title: Create dossier with a PDF main document
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          mainDocument:
+            fileName: 16115.pdf
+        files:
+          mainDocument:
+            file: files/filetypes/16115.pdf
+            expected_response_status: 204
+
+- title: Non-unique attachment externalIds
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          attachments:
+            - externalId: SAME-ID-AS-OTHER-ATTACHMENT
+              fileName: kranten artikel.txt
+              formalDate: <ROBOT DATE -12>
+              grounds: []
+              language: NLD
+              type: c_c2f56984
+            - externalId: SAME-ID-AS-OTHER-ATTACHMENT
+              fileName: bijbehorende vergunning.txt
+              formalDate: <ROBOT DATE -25>
+              grounds: []
+              language: NLD
+              type: c_002fc258
+        expected_response_status: 422
+
+- title: Upload zip files
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          mainDocument:
+            fileName: relations.zip
+          attachments:
+            - externalId: <PYTHON GUID>
+              fileName: relations.zip
+              formalDate: <ROBOT DATE -12>
+              grounds: []
+              language: NLD
+              type: c_c2f56984
+          documents:
+            - externalId: <PYTHON GUID>
+              inquiryNumbers: [E2E-CASE-001]
+              documentDate: "2020-06-01"
+              documentId: <ROBOT RANDOM INT>
+              familyId: 333
+              fileName: relations.zip
+              grounds: [<ROBOT RANDOMIZE>]
+              isSuspended: false
+              judgement: public
+              links: []
+              publicationContext: "2025-01"
+              refersTo: []
+              remark: "Niets op aan te merken"
+              sourceType: doc
+              threadId: 12345
+        files:
+          mainDocument:
+            file: files/woodecision/relations.zip
+            expected_response_status: 204
+          attachments:
+            - externalId: <PYTHON GUID>
+              file: files/woodecision/relations.zip
+          documents:
+            - externalId: <PYTHON GUID>
+              file: files/woodecision/relations.zip
+        expected_response_status: 422
+
+- title: Past publication
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          previewDate: <ROBOT DATE -720>
+          publicationDate: <ROBOT DATE -720>
+        expected_publication_status: published
+
+- title: Future publication
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          previewDate: <ROBOT DATE +0>
+          publicationDate: <ROBOT DATE +7>
+        expected_publication_status: preview
+
+- title: Preview publication
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          previewDate: <ROBOT DATE +7>
+          publicationDate: <ROBOT DATE +14>
+        expected_publication_status: scheduled
+
+- title: Change # TODO: This might just create a new dossier instead of updating the previous one
+  steps:
+    - name: Create dossier
+      request: {}
+    - name: Update the dossier
+      request:
+        body:
+          decision: not_public
+        expected_publication_status: published
+
+- title: Non-unique document IDs
+  steps:
+    - name: Create dossier A
+      request:
+        body:
+          documents:
+            - externalId: <PYTHON GUID>
+              inquiryNumbers: [E2E-CASE-001]
+              documentDate: "2020-06-01"
+              documentId: <ROBOT RANDOM INT>
+              familyId: 111
+              fileName: quality.doc
+              grounds: [<ROBOT RANDOMIZE>]
+              isSuspended: false
+              judgement: public
+              links: []
+              publicationContext: A
+              refersTo: []
+              remark: "Niets op aan te merken"
+              sourceType: doc
+              threadId: 12345
+              file: files/dummy.txt
+        files:
+          documents:
+            - externalId: <PYTHON GUID>
+              file: files/dummy.txt
+              expected_response_status: 204
+        expected_response_status: 200
+    - name: Store documentId from dossier A
+      keyword:
+        name: Store WooDecision Document ID
+    - name: Create dossier B
+      request:
+        body:
+          documents:
+            - externalId: <PYTHON GUID>
+              inquiryNumbers: [E2E-CASE-001]
+              documentDate: "2020-06-01"
+              documentId: <STORED DOCUMENT ID>
+              familyId: 111
+              fileName: quality.doc
+              grounds: [<ROBOT RANDOMIZE>]
+              isSuspended: false
+              judgement: public
+              links: []
+              publicationContext: A
+              refersTo: []
+              remark: "Niets op aan te merken"
+              sourceType: doc
+              threadId: 12345
+              file: files/dummy.txt
+        files:
+          documents:
+            - externalId: <PYTHON GUID>
+              file: files/dummy.txt
+        expected_response_status: 422
+
+- title: Mimetype mismatch
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          documents:
+            - externalId: <PYTHON GUID>
+              inquiryNumbers: [E2E-CASE-001]
+              documentDate: "2020-06-01"
+              documentId: <ROBOT RANDOM INT>
+              familyId: 333
+              fileName: magicbytes-fail.xlsx
+              grounds: []
+              isSuspended: false
+              judgement: public
+              links: []
+              publicationContext: "2025-01"
+              refersTo: []
+              remark: Uploading an xlsx file which does not have the correct magic bytes for an xlsx file.
+              sourceType: spreadsheet
+              threadId: 12345
+        files:
+          documents:
+            - externalId: <PYTHON GUID>
+              file: files/magicbytes-fail.xlsx
+              expected_response_status: 422
+        expected_response_status: 200
+        expected_publication_status: concept
+    - name: Document processing check
+      keyword:
+        name: Verify WooDecision Document Processing
+        args:
+          - processing_failed
+
+- title: Filetype mismatch
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          documents:
+            - externalId: <PYTHON GUID>
+              inquiryNumbers: [E2E-CASE-001]
+              documentDate: "2020-06-01"
+              documentId: <ROBOT RANDOM INT>
+              familyId: 333
+              fileName: quality.doc
+              grounds: [<ROBOT RANDOMIZE>]
+              isSuspended: false
+              judgement: public
+              links: []
+              publicationContext: "2025-01"
+              refersTo: []
+              remark: Uploading an xlsx file while metadata says it's a pdf.
+              sourceType: doc
+              threadId: 12345
+        files:
+          documents:
+            - externalId: <PYTHON GUID>
+              file: files/woodecision/productierapport - 10 openbaar waarvan 1 verwisseld.xlsx
+              expected_response_status: 422
+        expected_publication_status: concept
+    - name: Document processing check
+      keyword:
+        name: Verify WooDecision Document Processing
+        args:
+          - processing_failed
+
+- title: Create dossier with invalid grounds
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          mainDocument:
+            grounds: [foobar]
+          attachments:
+            - externalId: <PYTHON GUID>
+              fileName: kranten artikel.txt
+              formalDate: <ROBOT DATE -12>
+              grounds: [foobar]
+              language: NLD
+              type: c_c2f56984
+            - externalId: <PYTHON GUID>
+              fileName: bijbehorende vergunning.txt
+              formalDate: <ROBOT DATE -25>
+              grounds: [foobar]
+              language: NLD
+              type: c_002fc258
+          documents:
+            - externalId: <PYTHON GUID>
+              inquiryNumbers: [E2E-CASE-001]
+              documentDate: "2020-06-01"
+              documentId: <ROBOT RANDOM INT>
+              familyId: 333
+              fileName: quality.doc
+              grounds: [foobar]
+              isSuspended: false
+              judgement: public
+              links: []
+              publicationContext: "2025-01"
+              refersTo: []
+              remark: "Niets op aan te merken"
+              sourceType: doc
+              threadId: 12345
+        expected_response_status: 422
+
+- title: Upload the exact same request twice
+  steps:
+    - name: Create dossier
+      request:
+        files:
+          mainDocument:
+          attachments: []
+          documents: []
+        expected_publication_status: concept
+    - name: Create dossier again with identical request
+      reuse_previous_request: true
+      request:
+        files:
+          mainDocument:
+          attachments: []
+          documents: []
+        expected_publication_status: concept
+
+- title: Changing document ID updates documentNumber
+  steps:
+    - name: Create dossier and upload document
+      request:
+        body:
+          attachments: []
+          documents:
+            - externalId: <PYTHON GUID>
+              inquiryNumbers: [E2E-CASE-001]
+              documentDate: "2020-06-01"
+              documentId: <ROBOT RANDOM INT>
+              familyId: 333
+              fileName: quality.doc
+              grounds: [<ROBOT RANDOMIZE>]
+              isSuspended: false
+              judgement: public
+              links: []
+              publicationContext: "2025-01"
+              refersTo: []
+              remark: "Niets op aan te merken"
+              sourceType: doc
+              threadId: 12345
+        files:
+          mainDocument:
+          attachments: []
+          documents:
+            - externalId: <PYTHON GUID>
+              file: files/dummy.txt
+              expected_response_status: 204
+        expected_publication_status: concept
+    - name: Wait until document is processed
+      keyword:
+        name: Wait For WooDecision Document Processing
+        args:
+          - processed
+    - name: Store current documentNumber
+      keyword:
+        name: Store WooDecision Document Nr
+    - name: Change document ID in metadata
+      keyword:
+        name: Change Document ID
+    - name: Re-send metadata with updated document ID
+      reuse_previous_request: true
+      request:
+        files:
+          mainDocument:
+          attachments: []
+          documents: []
+        expected_publication_status: concept
+    - name: Verify documentNumber changed after updating documentId
+      keyword:
+        name: Verify WooDecision Document Nr Changed
+
+- title: HAL links should be reachable
+  steps:
+      - name: Create dossier
+        request: {}
+      - name: Verify HAL links
+        keyword:
+          name: Verify HAL Links Are Reachable
+
+- title: Document with valid refersTo link
+  steps:
+    - name: Create first dossier with document being referred to
+      request:
+        body:
+          documents:
+            - externalId: <PYTHON GUID>
+              inquiryNumbers: [E2E-CASE-001]
+              documentDate: "2020-06-01"
+              documentId: <ROBOT RANDOM INT>
+              familyId: 333
+              fileName: quality.doc
+              grounds: [<ROBOT RANDOMIZE>]
+              isSuspended: false
+              judgement: public
+              links: []
+              publicationContext: "2025-01"
+              refersTo: []
+              remark: "Document being referred to"
+              sourceType: doc
+              threadId: 12345
+        files:
+          documents:
+            - externalId: <PYTHON GUID>
+              file: files/dummy.txt
+              expected_response_status: 204
+        expected_response_status: 200
+    - name: Store externalId of referred document
+      keyword:
+        name: Store WooDecision Document External Id
+    - name: Create second dossier with referring document
+      request:
+        body:
+          documents:
+            - externalId: <PYTHON GUID>
+              inquiryNumbers: [E2E-CASE-001]
+              documentDate: "2020-06-02"
+              documentId: <ROBOT RANDOM INT>
+              familyId: 333
+              fileName: quality2.doc
+              grounds: [<ROBOT RANDOMIZE>]
+              isSuspended: false
+              judgement: public
+              links: []
+              publicationContext: "2025-01"
+              refersTo: [<STORED DOCUMENT EXTERNAL ID>]
+              remark: "Document that refers to another document"
+              sourceType: doc
+              threadId: 12345
+        files:
+          documents:
+            - externalId: <PYTHON GUID>
+              file: files/dummy.txt
+              expected_response_status: 204
+        expected_response_status: 200
+
+- title: Document refersTo refers to itself
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          documents:
+            - externalId: SELF-REFERENCING-DOC
+              inquiryNumbers: [E2E-CASE-001]
+              documentDate: "2020-06-01"
+              documentId: <ROBOT RANDOM INT>
+              familyId: 333
+              fileName: quality.doc
+              grounds: [<ROBOT RANDOMIZE>]
+              isSuspended: false
+              judgement: public
+              links: []
+              publicationContext: "2025-01"
+              refersTo: [SELF-REFERENCING-DOC]
+              remark: "Document that refers to itself"
+              sourceType: doc
+              threadId: 12345
+        expected_response_status: 422
+
+- title: Document refersTo contains a non-existent value
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          documents:
+            - externalId: <PYTHON GUID>
+              inquiryNumbers: [E2E-CASE-001]
+              documentDate: "2020-06-01"
+              documentId: <ROBOT RANDOM INT>
+              familyId: 333
+              fileName: quality.doc
+              grounds: [<ROBOT RANDOMIZE>]
+              isSuspended: false
+              judgement: public
+              links: []
+              publicationContext: "2025-01"
+              refersTo: [NOT-AN-EXISTING-EXTERNAL-ID]
+              remark: "Document with non-existent refersTo value"
+              sourceType: doc
+              threadId: 12345
+        expected_response_status: 422
+
+- title: Document links contains an invalid URL
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          documents:
+            - externalId: <PYTHON GUID>
+              inquiryNumbers: [E2E-CASE-001]
+              documentDate: "2020-06-01"
+              documentId: <ROBOT RANDOM INT>
+              familyId: 333
+              fileName: quality.doc
+              grounds: [<ROBOT RANDOMIZE>]
+              isSuspended: false
+              judgement: public
+              links: [not-a-valid-url]
+              publicationContext: "2025-01"
+              refersTo: []
+              remark: "Document with an invalid URL in links"
+              sourceType: doc
+              threadId: 12345
+        expected_response_status: 422
+
+- title: Already public documents don't require an upload
+  steps:
+    - name: Create dossier
+      request:
+        body:
+          decision: public
+          documents:
+            - externalId: <PYTHON GUID>
+              inquiryNumbers: [E2E-CASE-001]
+              documentDate: "2020-06-01"
+              documentId: <ROBOT RANDOM INT>
+              familyId: 333
+              fileName: quality.doc
+              grounds: [<ROBOT RANDOMIZE>]
+              isSuspended: false
+              judgement: already_public
+              links: []
+              publicationContext: "2025-01"
+              refersTo: []
+              remark: "Niets op aan te merken"
+              sourceType: doc
+              threadId: 12345
+        files:
+          documents: []
+        expected_publication_status: published
+    - name: UploadStatus Is No Upload Required
+      keyword:
+        name: UploadStatus Is No Upload Required

@@ -1,0 +1,87 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Domain\Sitemap;
+
+use Mockery;
+use Mockery\MockInterface;
+use Presta\SitemapBundle\Event\SitemapPopulateEvent;
+use Presta\SitemapBundle\Service\UrlContainerInterface;
+use Presta\SitemapBundle\Sitemap\Url\UrlConcrete;
+use Shared\Domain\Department\Department;
+use Shared\Domain\Department\DepartmentRepository;
+use Shared\Domain\Sitemap\SitemapDepartmentSubscriber;
+use Shared\Tests\Unit\UnitTestCase;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+
+class SitemapDepartmentSubscriberTest extends UnitTestCase
+{
+    private DepartmentRepository&MockInterface $departmentRepository;
+    private SitemapDepartmentSubscriber $subscriber;
+
+    protected function setUp(): void
+    {
+        $this->departmentRepository = Mockery::mock(DepartmentRepository::class);
+
+        $this->subscriber = new SitemapDepartmentSubscriber(
+            $this->departmentRepository,
+        );
+    }
+
+    public function testPopulate(): void
+    {
+        $department = Mockery::mock(Department::class);
+        $department->expects('getSlug')->andReturn($slug = 'foobar');
+
+        $urlContainer = Mockery::mock(UrlContainerInterface::class);
+
+        $this->departmentRepository
+            ->expects('getAllPublicDepartments')
+            ->andReturn([$department]);
+
+        $urlGenerator = Mockery::mock(UrlGeneratorInterface::class);
+        $urlGenerator->expects('generate')->with(
+            'app_departments_index',
+            [],
+            0,
+        )->andReturn($departmentOverviewUrl = '/departments');
+
+        $urlContainer->expects('addUrl')->with(
+            Mockery::on(
+                static function (UrlConcrete $urlConcrete) use ($departmentOverviewUrl): bool {
+                    self::assertEquals($departmentOverviewUrl, $urlConcrete->getLoc());
+
+                    return true;
+                },
+            ),
+            'departments',
+        );
+
+        $urlGenerator->expects('generate')->with(
+            'app_department_detail',
+            [
+                'slug' => $slug,
+            ],
+            0,
+        )->andReturn($departmentDetailUrl = '/departments/foobar');
+
+        $urlContainer->expects('addUrl')->with(
+            Mockery::on(
+                static function (UrlConcrete $urlConcrete) use ($departmentDetailUrl): bool {
+                    self::assertEquals($departmentDetailUrl, $urlConcrete->getLoc());
+
+                    return true;
+                },
+            ),
+            'departments',
+        );
+
+        $event = new SitemapPopulateEvent(
+            $urlContainer,
+            $urlGenerator,
+        );
+
+        $this->subscriber->__invoke($event);
+    }
+}

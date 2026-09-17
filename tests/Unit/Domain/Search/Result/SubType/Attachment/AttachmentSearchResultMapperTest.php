@@ -1,0 +1,101 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Domain\Search\Result\SubType\Attachment;
+
+use MinVWS\TypeArray\TypeArray;
+use Mockery;
+use Mockery\MockInterface;
+use Shared\Domain\Publication\Attachment\Entity\AbstractAttachment;
+use Shared\Domain\Publication\Attachment\Repository\AttachmentRepository;
+use Shared\Domain\Publication\Attachment\ViewModel\Attachment;
+use Shared\Domain\Publication\Attachment\ViewModel\AttachmentViewFactory;
+use Shared\Domain\Publication\Dossier\Type\Covenant\Covenant;
+use Shared\Domain\Publication\Dossier\Type\DossierType;
+use Shared\Domain\Search\Index\ElasticDocumentType;
+use Shared\Domain\Search\Result\SubType\Attachment\AttachmentSearchResultMapper;
+use Shared\Domain\Search\Result\SubType\SubTypeSearchResultEntry;
+use Shared\Tests\Unit\UnitTestCase;
+use Shared\ValueObject\DossierTitle;
+
+class AttachmentSearchResultMapperTest extends UnitTestCase
+{
+    private AttachmentRepository&MockInterface $attachmentRepository;
+    private AttachmentViewFactory&MockInterface $attachmentViewFactory;
+    private AttachmentSearchResultMapper $mapper;
+
+    protected function setUp(): void
+    {
+        $this->attachmentRepository = Mockery::mock(AttachmentRepository::class);
+        $this->attachmentViewFactory = Mockery::mock(AttachmentViewFactory::class);
+
+        $this->mapper = new AttachmentSearchResultMapper(
+            $this->attachmentRepository,
+            $this->attachmentViewFactory,
+        );
+    }
+
+    public function testSupports(): void
+    {
+        self::assertTrue($this->mapper->supports(ElasticDocumentType::ATTACHMENT));
+        self::assertFalse($this->mapper->supports(ElasticDocumentType::COMPLAINT_JUDGEMENT_MAIN_DOCUMENT));
+    }
+
+    public function testMapReturnsNullWhenIdIsMissing(): void
+    {
+        $hit = Mockery::mock(TypeArray::class);
+        $hit->expects('getStringOrNull')->with('[_id]')->andReturnNull();
+
+        $this->assertNull($this->mapper->map($hit));
+    }
+
+    public function testMapReturnsNullWhenAttachmentCannotBeLoaded(): void
+    {
+        $hit = Mockery::mock(TypeArray::class);
+        $hit->expects('getStringOrNull')->with('[_id]')->andReturn('foo');
+
+        $this->attachmentRepository->expects('find')->with('foo')->andReturnNull();
+
+        $this->assertNull($this->mapper->map($hit));
+    }
+
+    public function testMapSuccessful(): void
+    {
+        $hit = Mockery::mock(TypeArray::class);
+        $hit->expects('getStringOrNull')->with('[_id]')->andReturn('foo');
+        $hit->expects('exists')->with('[highlight][pages.content]')->andReturnTrue();
+        $hit->expects('getTypeArray->toArray')->andReturn(['x', 'y']);
+        $hit->expects('exists')->with('[highlight][dossiers.title]')->andReturnFalse();
+        $hit->expects('exists')->with('[highlight][dossiers.summary]')->andReturnFalse();
+
+        $dossier = Mockery::mock(Covenant::class);
+        $dossier->expects('getDossierNumber')->andReturn($dossierNumber = '123');
+        $dossier->expects('getDocumentPrefix')->andReturn($documentPrefix = 'foo');
+        $dossier->expects('getTitle')->andReturn($title = DossierTitle::create('bar'));
+        $dossier->expects('getType')->andReturn($dossierType = DossierType::COVENANT);
+
+        $attachment = Mockery::mock(AbstractAttachment::class);
+        $attachment->expects('getDossier')->andReturn($dossier);
+
+        $viewModel = Mockery::mock(Attachment::class);
+
+        $this->attachmentRepository->expects('find')->with('foo')->andReturn($attachment);
+        $this->attachmentViewFactory->expects('make')->with($dossier, $attachment)->andReturn($viewModel);
+
+        $entry = $this->mapper->map($hit);
+
+        self::assertInstanceOf(SubTypeSearchResultEntry::class, $entry);
+
+        $dossierReference = $entry->getDossiers()[0];
+
+        $this->assertInstanceOf(SubTypeSearchResultEntry::class, $entry);
+        $this->assertSame($viewModel, $entry->getViewModel());
+        $this->assertSame($dossierNumber, $dossierReference->getDossierNumber());
+        $this->assertSame($documentPrefix, $dossierReference->getDocumentPrefix());
+        $this->assertSame($dossierType, $dossierReference->getType());
+        $this->assertSame($title, $dossierReference->getTitle());
+        $this->assertSame(['x', 'y'], $entry->getHighlights());
+        $this->assertSame(ElasticDocumentType::ATTACHMENT, $entry->getType());
+    }
+}

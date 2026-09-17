@@ -1,0 +1,32 @@
+
+{% set tabPaginators = [activeUsers, deactivatedUsers] %}
+{% set tabPaginators = tabPaginators | merge(activeAdmins is not null ? [activeAdmins] : []) %}
+{% set tabPaginators = tabPaginators | merge(deactivatedAdmins is not null ? [deactivatedAdmins] : []) %}
+
+{% set tabButtonTitles = ['admin.user.active_users' | trans, 'admin.user.deactivated_users' | trans] %}
+
+{% if is_granted('AuthMatrix.super_admin.update') %}
+    {% set tabButtonTitles = tabButtonTitles | merge(activeAdmins is not null ? ['admin.user.active_admins' | trans] : []) %}
+    {% set tabButtonTitles = tabButtonTitles | merge(deactivatedAdmins is not null ? ['admin.user.deactivated_admins' | trans] : []) %}
+{% endif %}
+
+{% set tabsName = 'gebruikers' %}
+<twig:Admin:Tabs
+    buttonTitles="{{ tabButtonTitles }}"
+    name="{{ tabsName }}"
+    title="{{ page_title }}"
+>
+    {% for paginator in tabPaginators %}
+        <twig:Tab:Content
+            tabNumber="{{ loop.index }}"
+            tabsName="{{ tabsName }}"
+            isHidden="{{ not loop.first }}"
+        >
+            {% include 'admin/user/snippets/user-tab-content.html.twig' with {
+                'fragment': '#tabs-' ~ tabsName ~ '-button-' ~ loop.index,
+                'paginator': paginator,
+                'title': tabButtonTitles[loop.index0],
+            } %}
+        </twig:Tab:Content>
+    {% endfor %}
+</twig:Admin:Tabs>

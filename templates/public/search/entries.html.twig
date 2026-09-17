@@ -1,0 +1,135 @@
+{% import "public/macros/facet.html.twig" as macro %}
+
+{% set searchQuery = app.request.query.get('q') %}
+{% set numberOfResults = result.entries | length %}
+{% set numberOfPages = result.pagination.pageCount %}
+{% set activeSort = result.sortItems.active %}
+
+<div class="md:flex pb-3">
+    <div class="grow pb-3 md:pb-0">
+        {% set tooManyResultsMinimum = 10000 %}
+        {% set hasTooManyResults = result.resultCount >= tooManyResultsMinimum %}
+        <h2 class="leading-tight {% if not hasTooManyResults %}mt-3{% endif %}" aria-live="polite" id="js-number-of-search-results" tabindex="-1">
+            {% if hasTooManyResults %}
+                {{ 'public.search.only_first_set_displayed' | trans({ display_count: tooManyResultsMinimum | format_number(locale=('lang' | trans)) }) | raw }}
+            {% else %}
+                <span class="font-bold" data-e2e-name="result-count">{{ "global.number_of_results" | trans({'count': result.resultCount}) }}</span>
+                <span data-e2e-name="dossier-count">{{ "public.results.in_dossiers" | trans({'count': result.dossierCount}) }}</span>
+            {% endif %}
+        </h2>
+
+        {% if hasTooManyResults %}
+            <p class="leading-tight">{{ 'public.search.refine_results' | trans }}</p>
+        {% endif %}
+
+        {# Suggestions #}
+        {% set suggestionsId = ELASTIC_CONFIG.suggestionsSearchInput %}
+        {% if result.suggestion(suggestionsId) is not null and result.suggestion(suggestionsId).entries|length %}
+        <p class="italic pt-1">
+            {% if result.suggestion(suggestionsId).entries | length == 1 %}
+                {{ 'public.search_suggestion' | trans }}
+            {% else %}
+                {{ 'public.search_suggestion.terms' | trans }}
+            {% endif %}
+            {% for entry in result.suggestion(suggestionsId).entries %}
+                {% if loop.last and loop.index > 1 %}{{ "global.or" | trans }}{% elseif not loop.first %}, {% endif %}
+                <a class="woo-a" href="{{ path('app_home', { q: entry.name }) }}">{{ entry.name }}</a>{{loop.last ? '?' : '' }}
+            {% endfor %}
+        </p>
+        {% endif %}
+
+        {% if result.displayWithoutDateMessage %}
+        <p class="text-sm woo-muted leading-none py-1">
+            {{ 'search.results_without_date' | trans({'count': result.documentCountWithoutDate, '%pre_document%': '<a class="woo-a" href="' ~ path('app_search', result.searchParameters.includeWithoutDate.queryParameters.all) ~ '">', '%post_document%': '</a>'}) | raw }}
+        </p>
+        {% endif %}
+    </div>
+    {# Only allow sorting if there is more than 1 result or when there's pagination (there can be 1 result on this page) #}
+    {% if numberOfResults > 1 or numberOfPages > 1 %}
+    <div class="shrink-0 md:ml-4 pt-3 md:pt-0">
+        <details class="relative js-details" data-e2e-name="sorting-selector">
+            <summary class="woo-btn-bordered-blue" id="sort-results">
+                <span class="sr-only">{{ 'public.global.sort.sorted_by' | trans }}:</span>
+                {{ activeSort.field | trans }}
+                {% if activeSort.showSortOrder %}
+                    ({{ activeSort.order | trans }})
+                {% endif %}
+                <twig:Public:Icon class="woo-btn__icon-right" name="sort" />
+            </summary>
+
+            <ul aria-labelledby="sort-results" data-e2e-name="sorting-selector-options" class="woo-overlay-card md:right-0 w-72 sm:w-96">
+                {% for sortItem in result.sortItems %}
+                    {% set isActiveSort = activeSort.field == sortItem.field and activeSort.order == sortItem.order %}
+                    <li class="leading-none">
+                        <a
+                            class="block p-4 hover-focus:bg-woo-gray-50"
+                            href="{{ path(result.routeName, sortItem.searchParameters.queryParameters.all|merge(result.routeParameters)) }}#search-results-list"
+                        >
+                            <span class="block py-0.5">
+                                {% if isActiveSort %}
+                                    <twig:Public:Icon name="check" class="mr-1" />
+                                {% endif %}
+                                <span class="sr-only">{{ 'public.global.sort.sort_by' | trans }}:</span>
+                                <span{{ isActiveSort ? ' class="font-bold"': '' }}>{{ sortItem.field | trans }}{% if sortItem.showSortOrder %} ({{ sortItem.order | trans }}){% endif %}</span>
+                            </span>
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </details>
+    </div>
+    {% endif %}
+</div>
+{% if result.searchParameters.hasActiveFacets %}
+    {# Facet pills #}
+    <ul class="flex flex-wrap pb-1 gap-x-2">
+        {{ macro.facet_pills(constant('Shared\\Service\\Search\\Model\\FacetKey::PREFIXED_DOSSIER_NUMBER'), result) }}
+        {{ macro.facet_pills(constant('Shared\\Service\\Search\\Model\\FacetKey::INQUIRY_DOCUMENTS'), result) }}
+        {{ macro.facet_pills(constant('Shared\\Service\\Search\\Model\\FacetKey::INQUIRY_DOSSIERS'), result) }}
+        {{ macro.facet_pills(constant('Shared\\Service\\Search\\Model\\FacetKey::TYPE'), result) }}
+        {{ macro.facet_pills(constant('Shared\\Service\\Search\\Model\\FacetKey::DATE'), result) }}
+        {{ macro.facet_pills(constant('Shared\\Service\\Search\\Model\\FacetKey::DEPARTMENT'), result) }}
+        {{ macro.facet_pills(constant('Shared\\Service\\Search\\Model\\FacetKey::SUBJECT'), result) }}
+        {{ macro.facet_pills(constant('Shared\\Service\\Search\\Model\\FacetKey::SOURCE'), result) }}
+        {{ macro.facet_pills(constant('Shared\\Service\\Search\\Model\\FacetKey::JUDGEMENT'), result) }}
+        {{ macro.facet_pills(constant('Shared\\Service\\Search\\Model\\FacetKey::GROUNDS'), result) }}
+        {{ macro.facet_pills(constant('Shared\\Service\\Search\\Model\\FacetKey::FAMILY'), result) }}
+        {{ macro.facet_pills(constant('Shared\\Service\\Search\\Model\\FacetKey::THREAD'), result) }}
+        {{ macro.facet_pills(constant('Shared\\Service\\Search\\Model\\FacetKey::REFERRED_DOCUMENT_NUMBER'), result) }}
+    </ul>
+{% endif %}
+
+{# Results #}
+{% if numberOfResults > 0 %}
+    <ul data-e2e-name="search-results" id="search-results-list">
+        {% for entry in result.entries %}
+        <li class="woo-search-result" data-e2e-name="search-result">
+            {% include "public/search/entries/" ~ entry.type.value ~ ".html.twig" %}
+        </li>
+        {% endfor %}
+    </ul>
+{% elseif searchQuery %}
+    <div class="pt-2 woo-rich-text">
+        <h3 class="font-normal!">
+            <twig:Public:Icon name="magnifier" color="fill-dim-gray" />
+            {{ 'public.search.no_search_results.title' | trans }}
+        </h3>
+
+        <p>{{ 'public.search.no_search_results.description' | trans({ 'query': searchQuery }) }}.</p>
+
+        <h4>{{ 'public.search.suggestions' | trans }}:</h4>
+        <ul>
+            <li>{{ 'public.search.check_spelling' | trans }}</li>
+            <li>{{ 'public.search.try_different_search_term' | trans }}</li>
+            <li>{{ 'public.search.use_less_keywords' | trans }}</li>
+            <li><a href="?q=" data-e2e-name="start-new-search">{{ 'public.search.start_new_search' | trans }}</a></li>
+        </ul>
+    </div>
+{% endif %}
+
+{# Pagination #}
+{% if numberOfPages > 1 %}
+<div class="pt-8">
+    {{ knp_pagination_render(result.pagination) }}
+</div>
+{% endif %}

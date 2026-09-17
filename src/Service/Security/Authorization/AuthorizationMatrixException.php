@@ -1,0 +1,22 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Service\Security\Authorization;
+
+use RuntimeException;
+
+use function sprintf;
+
+class AuthorizationMatrixException extends RuntimeException
+{
+    public static function forUnknownFilter(AuthorizationMatrixFilter $filter): self
+    {
+        return new self(sprintf('Unknown authorization matrix filter "%s".', $filter->value));
+    }
+
+    public static function forNoActiveUser(): self
+    {
+        return new self('No active user to get active organisation for');
+    }
+}

@@ -1,0 +1,42 @@
+{% extends 'admin/base.html.twig' %}
+
+{% set page_title = 'admin.inquiries.manage' | trans %}
+
+{% block body %}
+<div class="bhr-container">
+    <twig:Admin:PageTitle title="{{ page_title }}" />
+
+    <div class="bhr-card">
+        {% include 'admin/shared/flash-messages.html.twig' %}
+
+        {% if inquiries | length > 0 %}
+            <table class="bhr-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Inquiry number</th>
+                        <th scope="col">Database ID</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inquiry in inquiries %}
+                        <tr>
+                            <td>
+                                <a class="bhr-a js-bhr-clickable-row-link break-all" href="{{ path('app_admin_inquiry_administration_details', {inquiryNumber: inquiry.inquiryNumber}) }}">
+                                    {{ inquiry.inquiryNumber }}
+                                </a>
+                            </td>
+                            <td>
+                                {{ inquiry.id }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="text-center">
+                Er zijn nog geen zaken aangemaakt.
+            </p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

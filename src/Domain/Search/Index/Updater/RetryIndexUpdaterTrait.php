@@ -1,0 +1,66 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Domain\Search\Index\Updater;
+
+use Elastic\Elasticsearch\Exception\ClientResponseException;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\Uid\Uuid;
+
+use function ceil;
+use function min;
+use function usleep;
+
+trait RetryIndexUpdaterTrait
+{
+    private const MAX_RETRIES = 10;
+
+    // Will retry a callable for a specified number of times. If the callable throws a ClientResponseException with a 409 code, it will
+    // retry the callable. If the callable throws a ClientResponseException with a different code, it will throw the exception.
+    // If the callable throws any other exception, it will throw the exception.
+    private function retry(callable $fn): void
+    {
+        $attemptId = Uuid::v6()->toRfc4122();
+
+        for ($retryCount = 0; $retryCount <= self::MAX_RETRIES; $retryCount++) {
+            try {
+                $fn();
+
+                return;
+            } catch (ClientResponseException $e) {
+                if ($retryCount === self::MAX_RETRIES) {
+                    $this->getLogger()->error('[Elasticsearch] Too many retries', [
+                        'attemptId' => $attemptId,
+                        'message' => $e->getMessage(),
+                        'code' => $e->getCode(),
+                    ]);
+                    throw $e;
+                }
+                if ($e->getCode() != 409) {
+                    $this->getLogger()->error('[Elasticsearch] An error occurred: {message}', [
+                        'attemptId' => $attemptId,
+                        'message' => $e->getMessage(),
+                        'code' => $e->getCode(),
+                    ]);
+                    throw $e;
+                }
+
+                $waitUs = (int) ceil(min(100000 * (1.4 ** $retryCount), 5000000));
+                $this->getLogger()->notice('[Elasticsearch] Update dossier version mismatch. Retrying...', [
+                    'attemptId' => $attemptId,
+                    'attemptCount' => $retryCount,
+                    'waitUs' => $waitUs,
+                ]);
+                $this->wait($waitUs);
+            }
+        }
+    }
+
+    protected function wait(int $waitUs): void
+    {
+        usleep($waitUs);
+    }
+
+    abstract protected function getLogger(): LoggerInterface;
+}

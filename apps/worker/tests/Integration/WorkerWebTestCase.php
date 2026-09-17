@@ -1,0 +1,19 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Worker\Tests\Integration;
+
+use Shared\ApplicationId;
+use Shared\Tests\Integration\IntegrationTestTrait;
+use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+
+abstract class WorkerWebTestCase extends WebTestCase
+{
+    use IntegrationTestTrait;
+
+    protected static function getApplicationId(): ApplicationId
+    {
+        return ApplicationId::WORKER;
+    }
+}

@@ -1,0 +1,42 @@
+# Documentatie
+
+Dit document beschrijft de inhoud van de verschillende submappen.
+
+## Bruno collection
+
+Deze map bevat een Bruno collectie om de Puiblication API te testen, zie de README in de betreffende map voor meer informatie.
+
+## Gebruikershandleiding
+
+Deze map bevat de gebruikershandleiding. Opgezet in Markdown zodat we bij elke build een nieuwe versie kunnen genereren van deze handleiding.
+
+De documentatie is publiekelijk beschikbaar op [open.minvws.nl/documentatie/](https://open.minvws.nl/documentatie).
+
+Om deze lokaal te genereren, gebruik je het volgende commando:
+
+```bash
+task docs:build:all
+```
+
+## Technische documentatie
+
+Deze map bevat technische documentatie om de broncode beter mee te kunnen begrijpen binnen deze repository.
+
+- [access-roles.md](technische-documentatie/access-roles.md)
+- [commands.md](technische-documentatie/commands.md)
+- [definition-of-done.md](technische-documentatie/definition-of-done.md)
+- [development_install.md](technische-documentatie/development_install.md)
+- [doctrine.md](technische-documentatie/doctrine.md)
+- [dossier-types.md](technische-documentatie/dossier-types.md)
+- [elastic_index.md](technische-documentatie/elastic_index.md)
+- [environment-settings.md](technische-documentatie/environment-settings.md)
+- [keydb-mirror-manual.md](technische-documentatie/keydb-mirror-manual.md)
+- [logging.md](technische-documentatie/logging.md)
+- [robots.md](technische-documentatie/robots.md)
+- [technical.md](technische-documentatie/technical.md)
+- [terminology.md](technische-documentatie/terminology.md)
+- [test.md](technische-documentatie/test.md)
+- [translations.md](technische-documentatie/translations.md)
+- [update.md](technische-documentatie/update.md)
+- [upgrade-php-image.md](technische-documentatie/upgrade-php-image.md)
+- [usage.md](technische-documentatie/usage.md)

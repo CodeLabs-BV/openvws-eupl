@@ -1,0 +1,34 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Service\Storage;
+
+use Shared\Domain\Publication\EntityWithFileInfo;
+use Symfony\Component\Uid\Uuid;
+
+use function hash;
+use function sprintf;
+use function substr;
+
+class StorageRootPathGenerator
+{
+    /**
+     * Returns the root path of an entity. Normally, this is /{documentPrefix}/{suffix}, where prefix are the first two
+     * characters of the SHA256 hash, and suffix is the rest of the SHA256 hash.
+     */
+    public function __invoke(EntityWithFileInfo $entity): string
+    {
+        return $this->fromUuid($entity->getId());
+    }
+
+    public function fromUuid(Uuid $id): string
+    {
+        $hash = hash('sha256', $id->toString());
+
+        $prefix = substr($hash, 0, 2);
+        $suffix = substr($hash, 2);
+
+        return sprintf('/%s/%s', $prefix, $suffix);
+    }
+}

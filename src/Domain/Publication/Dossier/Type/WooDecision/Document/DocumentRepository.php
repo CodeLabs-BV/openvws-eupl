@@ -1,0 +1,552 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Domain\Publication\Dossier\Type\WooDecision\Document;
+
+use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\DBAL\Exception;
+use Doctrine\ORM\Query;
+use Doctrine\ORM\Query\Expr\Join;
+use Doctrine\ORM\QueryBuilder;
+use Doctrine\Persistence\ManagerRegistry;
+use Shared\Doctrine\SortNullsLastWalker;
+use Shared\Domain\Publication\Dossier\AbstractDossier;
+use Shared\Domain\Publication\Dossier\DossierStatus;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Inquiry\Inquiry;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Judgement;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecision;
+use Shared\Domain\Search\Result\SubType\WooDecisionDocument\DocumentViewModel;
+use Shared\Service\Inquiry\DocumentInquiryNumbers;
+use Shared\ValueObject\DocumentId;
+use Shared\ValueObject\DocumentNumber;
+use Shared\ValueObject\ExternalId;
+use Symfony\Component\Uid\Uuid;
+use Webmozart\Assert\Assert;
+
+use function array_map;
+use function intval;
+use function sprintf;
+
+/**
+ * @extends ServiceEntityRepository<Document>
+ */
+class DocumentRepository extends ServiceEntityRepository
+{
+    public function __construct(ManagerRegistry $registry)
+    {
+        parent::__construct($registry, Document::class);
+    }
+
+    public function save(Document $entity, bool $flush = false): void
+    {
+        $this->getEntityManager()->persist($entity);
+
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
+    public function remove(Document $entity, bool $flush = false): void
+    {
+        $this->getEntityManager()->remove($entity);
+
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
+    /**
+     * @return array<array-key, Document>
+     */
+    public function findByThreadId(WooDecision $dossier, int $threadId): array
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->innerJoin('d.dossiers', 'ds')
+            ->where('d.threadId = :threadId')
+            ->andWhere('ds = :dossier')
+            ->andWhere('ds.status = :status')
+            ->orderBy('d.documentDate', 'ASC')
+            ->setParameter('threadId', $threadId)
+            ->setParameter('dossier', $dossier)
+            ->setParameter('status', DossierStatus::PUBLISHED);
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * @return array<array-key, Document>
+     */
+    public function findByFamilyId(WooDecision $dossier, int $familyId): array
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->innerJoin('d.dossiers', 'ds')
+            ->where('d.familyId = :familyId')
+            ->andWhere('ds = :dossier')
+            ->andWhere('ds.status = :status')
+            ->orderBy('d.documentDate', 'ASC')
+            ->setParameter('familyId', $familyId)
+            ->setParameter('dossier', $dossier)
+            ->setParameter('status', DossierStatus::PUBLISHED);
+
+        return $qb->getQuery()->getResult();
+    }
+
+    public function pagecount(): int
+    {
+        $result = $this->createqueryBuilder('d')
+            ->select('sum(d.fileInfo.pageCount)')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return intval($result);
+    }
+
+    public function getRelatedDocumentsByThread(WooDecision $dossier, Document $document): ArrayCollection|QueryBuilder
+    {
+        $threadId = $document->getThreadId();
+        if ($threadId < 1) {
+            return new ArrayCollection();
+        }
+
+        return $this->createQueryBuilder('doc')
+            ->select('doc, dos')
+            ->innerJoin('doc.dossiers', 'dos')
+            ->where('doc.threadId = :threadId')
+            ->andWhere('dos = :dossier')
+            ->andWhere('dos.status = :status')
+            ->andWhere('doc != :document')
+            ->orderBy('doc.documentDate', 'ASC')
+            ->setParameter('threadId', $threadId)
+            ->setParameter('dossier', $dossier)
+            ->setParameter('document', $document)
+            ->setParameter('status', DossierStatus::PUBLISHED);
+    }
+
+    public function getRelatedDocumentsByFamily(WooDecision $dossier, Document $document): ArrayCollection|QueryBuilder
+    {
+        $familyId = $document->getFamilyId();
+        if ($familyId < 1) {
+            return new ArrayCollection();
+        }
+
+        return $this->createQueryBuilder('doc')
+            ->select('doc, dos')
+            ->innerJoin('doc.dossiers', 'dos')
+            ->where('doc.familyId = :familyId')
+            ->andWhere('dos = :dossier')
+            ->andWhere('dos.status = :status')
+            ->andWhere('doc != :document')
+            ->orderBy('doc.documentDate', 'ASC')
+            ->setParameter('familyId', $familyId)
+            ->setParameter('dossier', $dossier)
+            ->setParameter('document', $document)
+            ->setParameter('status', DossierStatus::PUBLISHED);
+    }
+
+    public function findOneByDossierAndDocumentId(WooDecision $dossier, DocumentId $documentId): ?Document
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->innerJoin('d.dossiers', 'ds')
+            ->where('d.documentId = :documentId')
+            ->andWhere('ds.id = :dossierId')
+            ->setParameter('documentId', $documentId)
+            ->setParameter('dossierId', $dossier->getId());
+
+        /** @var ?Document */
+        return $qb->getQuery()->getOneOrNullResult();
+    }
+
+    public function findOneByDossierAndId(WooDecision $dossier, Uuid $id): ?Document
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->innerJoin('d.dossiers', 'ds')
+            ->where('d.id = :id')
+            ->andWhere('ds.id = :dossierId')
+            ->setParameter('id', $id)
+            ->setParameter('dossierId', $dossier->getId());
+
+        /** @var ?Document */
+        return $qb->getQuery()->getOneOrNullResult();
+    }
+
+    public function findOneByDossierNumberAndDocumentNumber(string $documentPrefix, string $dossierNumber, string $documentNumber): ?Document
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->innerJoin('d.dossiers', 'ds')
+            ->where('d.documentNumber = :documentNumber')
+            ->andWhere('ds.dossierNumber = :dossierNumber')
+            ->andWhere('ds.documentPrefix = :documentPrefix')
+            ->setParameter('documentNumber', DocumentNumber::fromString($documentNumber))
+            ->setParameter('dossierNumber', $dossierNumber)
+            ->setParameter('documentPrefix', $documentPrefix);
+
+        $document = $qb->getQuery()->getOneOrNullResult();
+        Assert::nullOrIsInstanceOf($document, Document::class);
+
+        return $document;
+    }
+
+    public function getDossierDocumentsQueryBuilder(WooDecision $dossier): QueryBuilder
+    {
+        return $this->createQueryBuilder('doc')
+            ->innerJoin('doc.dossiers', 'dos')
+            ->where('dos.id = :dossierId')
+            ->setParameter('dossierId', $dossier->getId());
+    }
+
+    public function getDossierDocumentsForPaginationQuery(WooDecision $dossier): Query
+    {
+        return $this->getDossierDocumentsQueryBuilder($dossier)
+            ->addSelect('
+                (CASE
+                    WHEN doc.withdrawn=true THEN 1
+                    WHEN doc.suspended=true THEN 3
+                    WHEN doc.judgement IN (:publicJudgements) AND doc.fileInfo.uploaded=false THEN 2
+                    ELSE NULLIF(1,1)
+                END) AS HIDDEN hasNotice')
+            ->setParameter('publicJudgements', Judgement::atLeastPartialPublicValues())
+            ->orderBy('doc.documentNumber', 'ASC')
+            ->getQuery()
+            ->setHint(Query::HINT_CUSTOM_OUTPUT_WALKER, SortNullsLastWalker::class);
+    }
+
+    /**
+     * @return array<array-key, Document>
+     */
+    public function findForDossierBySearchTerm(WooDecision $dossier, string $searchTerm, int $limit): array
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->innerJoin('d.dossiers', 'ds', Join::WITH, 'ds.id = :dossierId')
+            ->where('ILIKE(d.fileInfo.name, :searchTerm) = true')
+            ->orWhere('ILIKE(d.documentNumber, :searchTerm) = true')
+            ->orderBy('d.updatedAt', 'DESC')
+            ->setMaxResults($limit)
+            ->setParameter('searchTerm', '%' . $searchTerm . '%')
+            ->setParameter('dossierId', $dossier->getId());
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * @return array<array-key, Document>
+     */
+    public function getAllDossierDocumentsWithDossiers(WooDecision $dossier): array
+    {
+        $qb = $this->getDossierDocumentsQueryBuilder($dossier)
+            ->select('doc', 'dos');
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * @return array<array-key, Document>
+     */
+    public function getPublicInquiryDocumentsWithDossiers(Inquiry $inquiry): array
+    {
+        $qb = $this->createQueryBuilder('doc')
+            ->select('doc', 'dos')
+            ->innerJoin('doc.dossiers', 'dos')
+            ->innerJoin('doc.inquiries', 'doc_inq')
+            ->where('doc_inq.id = :inquiryId')
+            ->andWhere('dos.status IN (:statuses)')
+            ->setParameter('inquiryId', $inquiry->getId())
+            ->setParameter('statuses', DossierStatus::publiclyAvailableCases());
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * @return list<DocumentNumber>
+     */
+    public function getAllDocumentNumbersForDossier(WooDecision $dossier): array
+    {
+        /**
+         * @var list<array{documentNumber: DocumentNumber}> $rows
+         */
+        $rows = $this->getDossierDocumentsQueryBuilder($dossier)
+            ->select('doc.documentNumber AS documentNumber')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(
+            static fn (array $row): DocumentNumber => $row['documentNumber'],
+            $rows,
+        );
+    }
+
+    public function findByDocumentNumber(DocumentNumber $documentNumber): ?Document
+    {
+        return $this->findOneBy(['documentNumber' => $documentNumber]);
+    }
+
+    /**
+     * @return iterable<int,Document>
+     */
+    public function getDocumentsMissingPublicationContextIterable(): iterable
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->where('d.publicationContext IS NULL')
+            ->orderBy('d.id', 'ASC');
+
+        return $qb->getQuery()->toIterable();
+    }
+
+    /**
+     * @return iterable<int,Document>
+     */
+    public function getPublishedDocumentsIterable(): iterable
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->where('EXISTS (
+                SELECT 1
+                FROM Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecision ds
+                WHERE ds MEMBER OF d.dossiers AND ds.status = :status
+            )')
+            ->andWhere('d.judgement IN (:judgements)')
+            ->andWhere('d.fileInfo.uploaded = true')
+            ->orderBy('d.createdAt', 'ASC')
+            ->setParameter('status', DossierStatus::PUBLISHED)
+            ->setParameter('judgements', [Judgement::PUBLIC, Judgement::PARTIAL_PUBLIC]);
+
+        return $qb->getQuery()->toIterable();
+    }
+
+    public function getDocumentSearchEntry(DocumentNumber $documentNumber): ?DocumentViewModel
+    {
+        $qb = $this->createQueryBuilder('doc')
+            ->select(sprintf(
+                'new %s(
+                    doc.documentId,
+                    doc.documentNumber,
+                    doc.fileInfo.name,
+                    doc.fileInfo.sourceType,
+                    doc.fileInfo.uploaded,
+                    doc.fileInfo.size,
+                    doc.fileInfo.pageCount,
+                    doc.judgement,
+                    doc.documentDate
+                )',
+                DocumentViewModel::class,
+            ))
+            ->where('doc.documentNumber = :documentNumber')
+            ->andWhere('dos.status IN (:statuses)')
+            ->innerJoin('doc.dossiers', 'dos')
+            ->groupBy('doc.id')
+            ->setParameter('documentNumber', $documentNumber)
+            ->setParameter('statuses', [DossierStatus::PREVIEW, DossierStatus::PUBLISHED]);
+
+        /** @var ?DocumentViewModel */
+        return $qb->getQuery()->getOneOrNullResult();
+    }
+
+    /**
+     * @return array<array-key, Document>
+     */
+    public function getRevokedDocumentsInPublicDossiers(): array
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->innerJoin('d.dossiers', 'ds')
+            ->where('ds.status = :status')
+            ->andWhere('d.withdrawn = true OR d.suspended = true')
+            ->setParameter('status', DossierStatus::PUBLISHED);
+
+        return $qb->getQuery()->getResult();
+    }
+
+    public function findOneByDocumentNumberCaseInsensitive(DocumentNumber $documentNumber): ?Document
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->where('LOWER(d.documentNumber) = LOWER(:documentNumber)')
+            ->setParameter('documentNumber', $documentNumber);
+
+        /** @var ?Document */
+        return $qb->getQuery()->getOneOrNullResult();
+    }
+
+    public function getDocumentInquiryNumbers(DocumentNumber $documentNumber): DocumentInquiryNumbers
+    {
+        /**
+         * @var array<array-key, array{id:Uuid, inquiryNumber:string}> $result
+         */
+        $result = $this->createQueryBuilder('d')
+            ->select('d.id, inq.inquiryNumber')
+            ->where('LOWER(d.documentNumber) = LOWER(:documentNumber)')
+            ->setParameter('documentNumber', $documentNumber)
+            ->leftJoin('d.inquiries', 'inq')
+            ->getQuery()
+            ->getArrayResult();
+
+        return DocumentInquiryNumbers::fromArray($result);
+    }
+
+    public function findByExternalId(ExternalId $externalId): ?Document
+    {
+        return $this->findOneBy(['externalId' => $externalId]);
+    }
+
+    public function findByDossierAndExternalId(AbstractDossier $dossier, ExternalId $externalId): ?Document
+    {
+        /** @var ?Document */
+        return $this->createQueryBuilder('document')
+            ->innerJoin('document.dossiers', 'dossier')
+            ->where('dossier = :dossier')
+            ->setParameter('dossier', $dossier)
+            ->andWhere('document.externalId = :externalId')
+            ->setParameter('externalId', $externalId)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function hasIncompleteDocumentsForDossier(Uuid $dossierId): bool
+    {
+        $conn = $this->getEntityManager()->getConnection();
+
+        $sql = "
+        WITH RECURSIVE document_chain AS (
+        SELECT d.id
+        FROM document d
+        INNER JOIN document_dossier dd ON d.id = dd.document_id
+        WHERE dd.woo_decision_id = :dossierId
+          AND (
+              TRIM(COALESCE(d.document_number, '')) = ''
+              OR TRIM(COALESCE(d.judgement, '')) = ''
+              OR (
+                  d.suspended = FALSE
+                  AND d.withdrawn = FALSE
+                  AND d.judgement IN ('public', 'partial_public')
+                  AND d.file_uploaded = FALSE
+              )
+          )
+
+        UNION
+
+        SELECT d_ref.id
+        FROM document d_ref
+        INNER JOIN document_referrals dr ON d_ref.id = dr.referred_document_id
+        INNER JOIN document_chain dc ON dr.document_id = dc.id
+        WHERE
+            TRIM(COALESCE(d_ref.document_number, '')) = ''
+            OR TRIM(COALESCE(d_ref.judgement, '')) = ''
+            OR (
+                d_ref.suspended = FALSE
+                AND d_ref.withdrawn = FALSE
+                AND d_ref.judgement IN ('public', 'partial_public')
+                AND d_ref.file_uploaded = FALSE
+            )
+    )
+    SELECT EXISTS (SELECT 1 FROM document_chain LIMIT 1);
+    ";
+
+        $result = $conn->executeQuery($sql, ['dossierId' => $dossierId]);
+
+        return (bool) $result->fetchOne();
+    }
+
+    /**
+     * @param list<ExternalId> $externalIds
+     *
+     * @return list<string>
+     */
+    public function findExistingExternalIds(array $externalIds): array
+    {
+        if ($externalIds === []) {
+            return [];
+        }
+
+        /** @var list<string> */
+        return $this->createQueryBuilder('d')
+            ->select('d.externalId')
+            ->where('d.externalId IN (:ids)')
+            ->setParameter('ids', $externalIds)
+            ->getQuery()
+            ->getSingleColumnResult();
+    }
+
+    public function countDocumentsWithoutPublicationContext(): int
+    {
+        return $this->count(['publicationContext' => null]);
+    }
+
+    /**
+     * @return array<int, Document>
+     */
+    public function getDocumentsWithoutPublicationContext(int $limit): array
+    {
+        $documents = $this->createQueryBuilder('d')
+            ->where('d.publicationContext IS NULL')
+            ->orderBy('d.documentNumber')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+
+        Assert::allIsInstanceOf($documents, Document::class);
+
+        return $documents;
+    }
+
+    public function countDocumentsWithDriftedDocumentNumber(): int
+    {
+        $count = $this->createQueryBuilder('d')
+            ->select('COUNT(d.id)')
+            ->where('d.publicationContext IS NOT NULL')
+            ->andWhere("d.documentNumber <> CONCAT(d.publicationContext, '-', d.documentId)")
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        Assert::numeric($count);
+
+        return (int) $count;
+    }
+
+    /**
+     * @return array<int, Document>
+     */
+    public function getDocumentsWithDriftedDocumentNumber(int $limit): array
+    {
+        $documents = $this->createQueryBuilder('d')
+            ->where("d.publicationContext IS NOT NULL AND d.documentNumber <> CONCAT(d.publicationContext, '-', d.documentId)")
+            ->orderBy('d.documentNumber')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+
+        Assert::allIsInstanceOf($documents, Document::class);
+
+        return $documents;
+    }
+
+    public function countDocumentsWithMixedCaseDocumentId(): int
+    {
+        $count = $this->createQueryBuilder('d')
+            ->select('COUNT(d.id)')
+            ->where('d.documentId <> LOWER(d.documentId)')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        Assert::numeric($count);
+
+        return (int) $count;
+    }
+
+    /**
+     * @return array<int, Document>
+     */
+    public function getDocumentsWithMixedCaseDocumentId(int $limit): array
+    {
+        $documents = $this->createQueryBuilder('d')
+            ->where('d.documentId <> LOWER(d.documentId)')
+            ->orderBy('d.documentNumber')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+
+        Assert::allIsInstanceOf($documents, Document::class);
+
+        return $documents;
+    }
+}

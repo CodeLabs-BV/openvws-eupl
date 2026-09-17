@@ -1,0 +1,143 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Domain\Department;
+
+use Mockery;
+use Mockery\MockInterface;
+use Shared\Domain\Department\Department as DepartmentEntity;
+use Shared\Domain\Department\DepartmentRepository;
+use Shared\Domain\Department\DepartmentService;
+use Shared\Domain\Department\ViewModel\Department;
+use Shared\Domain\Department\ViewModel\DepartmentViewFactory;
+use Shared\Service\Security\Authorization\AuthorizationMatrix;
+use Shared\Service\Security\Authorization\AuthorizationMatrixFilter;
+use Shared\Tests\Unit\UnitTestCase;
+
+final class DepartmentServiceTest extends UnitTestCase
+{
+    private DepartmentRepository&MockInterface $repository;
+    private DepartmentViewFactory&MockInterface $departmentViewFactory;
+    private AuthorizationMatrix&MockInterface $authorizationMatrix;
+    private DepartmentService $departmentService;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->repository = Mockery::mock(DepartmentRepository::class);
+        $this->departmentViewFactory = Mockery::mock(DepartmentViewFactory::class);
+        $this->authorizationMatrix = Mockery::mock(AuthorizationMatrix::class);
+
+        $this->departmentService = new DepartmentService(
+            $this->repository,
+            $this->departmentViewFactory,
+            $this->authorizationMatrix,
+        );
+    }
+
+    public function testGetPublicDepartments(): void
+    {
+        $this->repository
+            ->expects('getAllPublicDepartments')
+            ->andReturn($departmentEntities = [
+                Mockery::mock(DepartmentEntity::class),
+                Mockery::mock(DepartmentEntity::class),
+            ]);
+
+        $this->departmentViewFactory
+            ->expects('makeCollection')
+            ->with($departmentEntities)
+            ->andReturn($expected = [
+                Mockery::mock(Department::class),
+                Mockery::mock(Department::class),
+            ]);
+
+        self::assertSame(
+            $expected,
+            $this->departmentService->getPublicDepartments(),
+        );
+    }
+
+    public function testUserCanEditLandingpageReturnsFalseWithoutMatrixPermission(): void
+    {
+        $department = Mockery::mock(DepartmentEntity::class);
+
+        $this->authorizationMatrix
+            ->expects('isAuthorized')
+            ->with('department_landing_page', 'update')
+            ->andReturnFalse();
+
+        self::assertFalse(
+            $this->departmentService->userCanEditLandingpage($department),
+        );
+    }
+
+    public function testUserCanEditLandingpageReturnsTrueWhenUserHasPermissionAndNoOrganisationFilter(): void
+    {
+        $department = Mockery::mock(DepartmentEntity::class);
+
+        $this->authorizationMatrix
+            ->expects('isAuthorized')
+            ->with('department_landing_page', 'update')
+            ->andReturnTrue();
+
+        $this->authorizationMatrix
+            ->expects('hasFilter')
+            ->with(AuthorizationMatrixFilter::ORGANISATION_ONLY)
+            ->andReturnFalse();
+
+        self::assertTrue(
+            $this->departmentService->userCanEditLandingpage($department),
+        );
+    }
+
+    public function testUserCanEditLandingpageReturnsFalseWhenUserHasPermissionButAnOrganisationFilterMismatch(): void
+    {
+        $department = Mockery::mock(DepartmentEntity::class);
+
+        $this->authorizationMatrix
+            ->expects('isAuthorized')
+            ->with('department_landing_page', 'update')
+            ->andReturnTrue();
+
+        $this->authorizationMatrix
+            ->expects('hasFilter')
+            ->with(AuthorizationMatrixFilter::ORGANISATION_ONLY)
+            ->andReturnTrue();
+
+        $this->authorizationMatrix
+            ->expects('getActiveOrganisation->hasDepartment')
+            ->with($department)
+            ->andReturnFalse();
+
+        self::assertFalse(
+            $this->departmentService->userCanEditLandingpage($department),
+        );
+    }
+
+    public function testUserCanEditLandingpageReturnsTrueWhenUserHasPermissionButAndOrganisationFilterMatches(): void
+    {
+        $department = Mockery::mock(DepartmentEntity::class);
+
+        $this->authorizationMatrix
+            ->expects('isAuthorized')
+            ->with('department_landing_page', 'update')
+            ->andReturnTrue();
+
+        $this->authorizationMatrix
+            ->expects('hasFilter')
+            ->with(AuthorizationMatrixFilter::ORGANISATION_ONLY)
+            ->andReturnTrue();
+
+        $this->authorizationMatrix
+            ->expects('getActiveOrganisation->hasDepartment')
+            ->with($department)
+            ->andReturnTrue();
+
+        self::assertTrue(
+            $this->departmentService->userCanEditLandingpage($department),
+        );
+    }
+}

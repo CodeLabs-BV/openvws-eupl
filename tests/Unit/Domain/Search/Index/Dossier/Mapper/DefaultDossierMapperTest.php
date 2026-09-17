@@ -1,0 +1,191 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Domain\Search\Index\Dossier\Mapper;
+
+use Doctrine\Common\Collections\ArrayCollection;
+use Mockery;
+use Shared\Domain\Department\Department;
+use Shared\Domain\Publication\Dossier\DossierStatus;
+use Shared\Domain\Publication\Dossier\Type\Covenant\Covenant;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecision;
+use Shared\Domain\Publication\Subject\Subject;
+use Shared\Domain\Search\Index\Dossier\Mapper\DefaultDossierMapper;
+use Shared\Domain\Search\Index\ElasticDocumentType;
+use Shared\Domain\Search\Index\Schema\ElasticField;
+use Shared\Domain\Search\Index\Schema\ElasticObjectField;
+use Shared\Tests\Unit\UnitTestCase;
+use Shared\ValueObject\DossierTitle;
+use Shared\ValueObject\PlainDate;
+use Symfony\Component\Uid\Uuid;
+
+class DefaultDossierMapperTest extends UnitTestCase
+{
+    private DefaultDossierMapper $mapper;
+
+    protected function setUp(): void
+    {
+        $this->mapper = new DefaultDossierMapper();
+
+        parent::setUp();
+    }
+
+    public function testSupports(): void
+    {
+        self::assertTrue(
+            $this->mapper->supports(new WooDecision()),
+        );
+
+        self::assertTrue(
+            $this->mapper->supports(new Covenant()),
+        );
+    }
+
+    public function testMap(): void
+    {
+        $departmentAid = Uuid::v6();
+        $departmentA = Mockery::mock(Department::class);
+        $departmentA->expects('getShortTag')->andReturn('F');
+        $departmentA->expects('getName')->andReturn('Foo');
+        $departmentA->expects('getId')->andReturn($departmentAid);
+
+        $departmentBid = Uuid::v6();
+        $departmentB = Mockery::mock(Department::class);
+        $departmentB->expects('getName')->andReturn('Bar');
+        $departmentB->expects('getShortTag')->andReturn('B');
+        $departmentB->expects('getId')->andReturn($departmentBid);
+
+        $subject = Mockery::mock(Subject::class);
+        $subject->expects('getId')->andReturn($subjectId = Uuid::v6());
+        $subject->expects('getName')->andReturn($subjectName = 'dummy subject');
+
+        $dossier = Mockery::mock(Covenant::class);
+        $dossier->expects('getId->toRfc4122')->andReturn($dossierId = 'foo-123');
+        $dossier->expects('getDossierNumber')->times(2)->andReturn('dos-123');
+        $dossier->expects('getTitle')->andReturn(DossierTitle::create('test-title'));
+        $dossier->expects('getSummary')->andReturn('test-summary');
+        $dossier->expects('getStatus')->andReturn(DossierStatus::PUBLISHED);
+        $dossier->expects('getDocumentPrefix')->times(2)->andReturn('foo');
+        $dossier->expects('getDateFrom')->times(3)->andReturn(PlainDate::create('2023-04-16'));
+        $dossier->expects('getDateTo')->times(3)->andReturn(PlainDate::create('2025-04-16'));
+        $dossier->expects('getPublicationDate')->andReturn(PlainDate::create('2024-04-16'));
+        $dossier->expects('getSubject')->andReturn($subject);
+        $dossier->expects('getDepartments')->andReturn(new ArrayCollection([
+            $departmentA,
+            $departmentB,
+        ]));
+        $dossier->expects('getOrganisation->getId')->andReturn($organisationId = Uuid::v6());
+
+        $doc = $this->mapper->map($dossier);
+
+        self::assertEquals(
+            [
+                'id' => $dossierId,
+                'type' => ElasticDocumentType::COVENANT,
+                'toplevel_type' => ElasticDocumentType::COVENANT,
+                'sublevel_type' => null,
+                'dossier_number' => 'dos-123',
+                'prefixed_dossier_number' => 'foo|dos-123',
+                'title' => 'test-title',
+                'status' => DossierStatus::PUBLISHED,
+                'summary' => 'test-summary',
+                'document_prefix' => 'foo',
+                'departments' => [
+                    [
+                        'id' => $departmentAid,
+                        'name' => 'F|Foo',
+                    ],
+                    [
+                        'id' => $departmentBid,
+                        'name' => 'B|Bar',
+                    ],
+                ],
+                'date_from' => '2023-04-16T00:00:00+00:00',
+                'date_to' => '2025-04-16T00:00:00+00:00',
+                'date_range' => [
+                    'gte' => '2023-04-16T00:00:00+00:00',
+                    'lte' => '2025-04-16T00:00:00+00:00',
+                ],
+                'date_period' => 'April 2023 t/m april 2025',
+                'publication_date' => '2024-04-16T00:00:00+00:00',
+                ElasticObjectField::SUBJECT->value => [
+                    ElasticField::ID->value => $subjectId,
+                    ElasticField::NAME->value => $subjectName,
+                ],
+                'organisation_ids' => [$organisationId],
+            ],
+            $doc->getDocumentValues(),
+        );
+    }
+
+    public function testMapWithoutSubject(): void
+    {
+        $departmentAid = Uuid::v6();
+        $departmentA = Mockery::mock(Department::class);
+        $departmentA->expects('getShortTag')->andReturn('F');
+        $departmentA->expects('getName')->andReturn('Foo');
+        $departmentA->expects('getId')->andReturn($departmentAid);
+
+        $departmentBid = Uuid::v6();
+        $departmentB = Mockery::mock(Department::class);
+        $departmentB->expects('getName')->andReturn('Bar');
+        $departmentB->expects('getShortTag')->andReturn('B');
+        $departmentB->expects('getId')->andReturn($departmentBid);
+
+        $dossier = Mockery::mock(Covenant::class);
+        $dossier->expects('getId->toRfc4122')->andReturn($dossierId = 'foo-123');
+        $dossier->expects('getDossierNumber')->times(2)->andReturn('dos-123');
+        $dossier->expects('getTitle')->andReturn(DossierTitle::create('test-title'));
+        $dossier->expects('getSummary')->andReturn('test-summary');
+        $dossier->expects('getStatus')->andReturn(DossierStatus::PUBLISHED);
+        $dossier->expects('getDocumentPrefix')->times(2)->andReturn('foo');
+        $dossier->expects('getDateFrom')->times(3)->andReturn(PlainDate::create('2023-04-16'));
+        $dossier->expects('getDateTo')->times(3)->andReturn(PlainDate::create('2025-04-16'));
+        $dossier->expects('getPublicationDate')->andReturn(PlainDate::create('2024-04-16'));
+        $dossier->expects('getSubject')->andReturnNull();
+        $dossier->expects('getDepartments')->andReturn(new ArrayCollection([
+            $departmentA,
+            $departmentB,
+        ]));
+        $dossier->expects('getOrganisation->getId')->andReturn($organisationId = Uuid::v6());
+
+        $doc = $this->mapper->map($dossier);
+
+        self::assertEquals(
+            [
+                'id' => $dossierId,
+                'type' => ElasticDocumentType::COVENANT,
+                'toplevel_type' => ElasticDocumentType::COVENANT,
+                'sublevel_type' => null,
+                'dossier_number' => 'dos-123',
+                'prefixed_dossier_number' => 'foo|dos-123',
+                'title' => 'test-title',
+                'status' => DossierStatus::PUBLISHED,
+                'summary' => 'test-summary',
+                'document_prefix' => 'foo',
+                'departments' => [
+                    [
+                        'id' => $departmentAid,
+                        'name' => 'F|Foo',
+                    ],
+                    [
+                        'id' => $departmentBid,
+                        'name' => 'B|Bar',
+                    ],
+                ],
+                'date_from' => '2023-04-16T00:00:00+00:00',
+                'date_to' => '2025-04-16T00:00:00+00:00',
+                'date_range' => [
+                    'gte' => '2023-04-16T00:00:00+00:00',
+                    'lte' => '2025-04-16T00:00:00+00:00',
+                ],
+                'date_period' => 'April 2023 t/m april 2025',
+                'publication_date' => '2024-04-16T00:00:00+00:00',
+                'subject' => null,
+                'organisation_ids' => [$organisationId],
+            ],
+            $doc->getDocumentValues(),
+        );
+    }
+}

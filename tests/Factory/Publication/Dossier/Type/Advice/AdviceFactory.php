@@ -1,0 +1,48 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Factory\Publication\Dossier\Type\Advice;
+
+use Shared\Domain\Publication\Dossier\DossierStatus;
+use Shared\Domain\Publication\Dossier\Type\Advice\Advice;
+use Shared\Tests\Factory\OrganisationFactory;
+use Shared\Tests\Factory\Publication\Dossier\Type\WooDecision\WooDecisionFactory;
+use Shared\ValueObject\DossierTitle;
+use Zenstruck\Foundry\Persistence\PersistentObjectFactory;
+
+/**
+ * @extends PersistentObjectFactory<Advice>
+ */
+final class AdviceFactory extends PersistentObjectFactory
+{
+    /**
+     * @return array<string, mixed>
+     */
+    protected function defaults(): array
+    {
+        $publicationDate = self::faker()->plainDateBetween('01-01-2010', '01-01-2023');
+
+        return [
+            'dossierNumber' => self::faker()->bothify('DOSSIER-####-#####'),
+            'title' => DossierTitle::create(self::faker()->sentence()),
+            'summary' => self::faker()->sentences(4, true),
+            'documentPrefix' => WooDecisionFactory::DEFAULT_PREFIX,
+            'status' => DossierStatus::PUBLISHED,
+            'organisation' => OrganisationFactory::new(),
+            'publicationDate' => $publicationDate,
+        ];
+    }
+
+    public function concept(): self
+    {
+        return $this->with([
+            'status' => DossierStatus::CONCEPT,
+        ]);
+    }
+
+    public static function class(): string
+    {
+        return Advice::class;
+    }
+}

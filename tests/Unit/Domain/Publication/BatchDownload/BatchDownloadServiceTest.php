@@ -1,0 +1,197 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Domain\Publication\BatchDownload;
+
+use Mockery;
+use Mockery\MockInterface;
+use Shared\Domain\Publication\BatchDownload\BatchDownload;
+use Shared\Domain\Publication\BatchDownload\BatchDownloadDispatcher;
+use Shared\Domain\Publication\BatchDownload\BatchDownloadRepository;
+use Shared\Domain\Publication\BatchDownload\BatchDownloadScope;
+use Shared\Domain\Publication\BatchDownload\BatchDownloadService;
+use Shared\Domain\Publication\BatchDownload\BatchDownloadStorage;
+use Shared\Domain\Publication\BatchDownload\Type\BatchDownloadTypeInterface;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\Inquiry\Inquiry;
+use Shared\Domain\Publication\Dossier\Type\WooDecision\WooDecision;
+use Shared\Tests\Unit\UnitTestCase;
+use Symfony\Component\Uid\Uuid;
+
+class BatchDownloadServiceTest extends UnitTestCase
+{
+    private BatchDownloadRepository&MockInterface $batchRepository;
+    private BatchDownloadDispatcher&MockInterface $dispatcher;
+    private BatchDownloadStorage&MockInterface $storage;
+    private BatchDownloadTypeInterface&MockInterface $typeA;
+    private BatchDownloadTypeInterface&MockInterface $typeB;
+    private BatchDownloadService $service;
+
+    protected function setUp(): void
+    {
+        $this->batchRepository = Mockery::mock(BatchDownloadRepository::class);
+        $this->dispatcher = Mockery::mock(BatchDownloadDispatcher::class);
+        $this->storage = Mockery::mock(BatchDownloadStorage::class);
+        $this->typeA = Mockery::mock(BatchDownloadTypeInterface::class);
+        $this->typeB = Mockery::mock(BatchDownloadTypeInterface::class);
+
+        $this->service = new BatchDownloadService(
+            $this->batchRepository,
+            $this->dispatcher,
+            $this->storage,
+            [$this->typeA, $this->typeB],
+        );
+
+        parent::setUp();
+    }
+
+    public function testRefreshForDossierRemovesAllBatchesAndCreatesANewBatchWithAllDocuments(): void
+    {
+        $dossier = Mockery::mock(WooDecision::class);
+        $scope = BatchDownloadScope::forWooDecision($dossier);
+
+        $this->batchRepository->expects('markAllForScopeAsOutdated')->with($scope)->andReturn(2);
+
+        $this->typeA->expects('supports')->with($scope)->andReturnFalse();
+        $this->typeB->expects('supports')->with($scope)->andReturnTrue();
+        $this->typeB->expects('isAvailableForBatchDownload')->with($scope)->andReturnTrue();
+
+        $batchValidator = Mockery::on(
+            static function (BatchDownload $batch) use ($dossier): bool {
+                self::assertEquals($dossier, $batch->getDossier());
+
+                return true;
+            },
+        );
+        $this->batchRepository->expects('save')->with($batchValidator);
+
+        $this->dispatcher
+            ->expects('dispatchGenerateBatchDownloadCommand')
+            ->with($batchValidator);
+
+        $this->service->refresh($scope);
+    }
+
+    public function testRefreshForDossierDoesNotGenerateNewArchiveForEntityThatIsNotAvailableForBatchDownload(): void
+    {
+        $dossier = Mockery::mock(WooDecision::class);
+        $scope = BatchDownloadScope::forWooDecision($dossier);
+
+        $this->batchRepository->expects('markAllForScopeAsOutdated')->with($scope)->andReturn(2);
+        $this->batchRepository->expects('getAllForScope')->never();
+        $this->batchRepository->expects('save')->never();
+
+        $this->typeA->expects('supports')->with($scope)->andReturnFalse();
+        $this->typeB->expects('supports')->with($scope)->andReturnTrue();
+        $this->typeB->expects('isAvailableForBatchDownload')->with($scope)->andReturnFalse();
+
+        $this->service->refresh($scope);
+    }
+
+    public function testRefreshForScopeWithBothADossierAndInquiryDoesNothing(): void
+    {
+        $dossier = Mockery::mock(WooDecision::class);
+        $inquiry = Mockery::mock(Inquiry::class);
+        $scope = BatchDownloadScope::forInquiryAndWooDecision($inquiry, $dossier);
+
+        $this->batchRepository->expects('markAllForScopeAsOutdated')->with($scope)->andReturn(2);
+        $this->batchRepository->expects('getAllForScope')->never();
+        $this->batchRepository->expects('save')->never();
+
+        $this->typeA->expects('supports')->with($scope)->andReturnFalse();
+        $this->typeB->expects('supports')->with($scope)->andReturnTrue();
+        $this->typeB->expects('isAvailableForBatchDownload')->with($scope)->andReturnTrue();
+
+        $service = Mockery::mock(BatchDownloadService::class, [
+            $this->batchRepository,
+            $this->dispatcher,
+            $this->storage,
+            [$this->typeA, $this->typeB],
+        ])->makePartial();
+
+        $service->expects('create')->never();
+
+        $service->refresh($scope);
+    }
+
+    public function testCreateWithScopeWithBothADossierAndInquiry(): void
+    {
+        $dossier = Mockery::mock(WooDecision::class);
+        $inquiry = Mockery::mock(Inquiry::class);
+        $scope = BatchDownloadScope::forInquiryAndWooDecision($inquiry, $dossier);
+
+        $service = Mockery::mock(BatchDownloadService::class, [
+            $this->batchRepository,
+            $this->dispatcher,
+            $this->storage,
+            [$this->typeA, $this->typeB],
+        ])->makePartial();
+
+        $service
+            ->expects('findOrCreate')
+            ->with(Mockery::on(static function (BatchDownloadScope $scope) use ($dossier) {
+                if ($scope->containsBothInquiryAndWooDecision()) {
+                    return false;
+                }
+
+                if ($scope->wooDecision !== $dossier) {
+                    return false;
+                }
+
+                return true;
+            }))
+
+            ->andReturn(Mockery::mock(BatchDownload::class));
+
+        $service->create($scope);
+    }
+
+    public function testFindOrCreateReusesExistingBatch(): void
+    {
+        $dossier = Mockery::mock(WooDecision::class);
+        $scope = BatchDownloadScope::forWooDecision($dossier);
+
+        $expectedBatch = Mockery::mock(BatchDownload::class);
+
+        $this->batchRepository->expects('getBestAvailableBatchDownloadForScope')->with($scope)->andReturns($expectedBatch);
+
+        $batch = $this->service->findOrCreate($scope);
+
+        self::assertSame($expectedBatch, $batch);
+    }
+
+    public function testFindOrCreateMakesNewBatch(): void
+    {
+        $dossier = Mockery::mock(WooDecision::class);
+        $scope = BatchDownloadScope::forWooDecision($dossier);
+
+        $this->batchRepository->expects('getBestAvailableBatchDownloadForScope')->with($scope)->andReturnNull();
+
+        $batchValidator = Mockery::on(
+            static function (BatchDownload $batch) use ($dossier): bool {
+                self::assertEquals($dossier, $batch->getDossier());
+
+                return true;
+            },
+        );
+        $this->batchRepository->expects('save')->with($batchValidator);
+
+        $this->dispatcher
+            ->expects('dispatchGenerateBatchDownloadCommand')
+            ->with($batchValidator);
+
+        $batch = $this->service->findOrCreate($scope);
+
+        $this->assertEquals($dossier, $batch->getDossier());
+    }
+
+    public function testExists(): void
+    {
+        $batchDownload = Mockery::mock(BatchDownload::class);
+        $batchDownload->expects('getId')->andReturn($uuid = Uuid::v6());
+
+        $this->batchRepository->expects('exists')->with($uuid)->andReturnTrue();
+
+        $this->assertTrue($this->service->exists($batchDownload));
+    }
+}

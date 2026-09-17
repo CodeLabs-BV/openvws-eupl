@@ -1,0 +1,33 @@
+import { detailsComponents, tabs } from '@js/shared';
+import { jsEnabled, onDomReady } from '@utils';
+import { confirmAction } from './admin/confirm-action';
+import { clickableRows } from './clickable-row';
+import { clickOnSelector } from './click-on-selector';
+import { copyToClipboard } from './copy-to-clipboard';
+import { toggleDialog } from './dialog';
+import { dossierInventoryStatus } from './dossier';
+import { printPage } from './print';
+import { sortTables } from './sort-tables';
+import { visibilityToggler } from './visibility-toggler';
+
+export const init = () => {
+  onDomReady(() => {
+    jsEnabled();
+
+    [
+      clickableRows(),
+      clickOnSelector(),
+      confirmAction(),
+      copyToClipboard(),
+      detailsComponents(),
+      dossierInventoryStatus(),
+      printPage(),
+      sortTables(),
+      tabs(),
+      toggleDialog(),
+      visibilityToggler(),
+    ].forEach((functionality) => {
+      functionality.initialize();
+    });
+  });
+};

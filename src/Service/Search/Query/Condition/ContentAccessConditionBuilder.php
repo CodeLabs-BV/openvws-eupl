@@ -1,0 +1,196 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Service\Search\Query\Condition;
+
+use Erichard\ElasticQueryBuilder\Query\BoolQuery;
+use Shared\Domain\Publication\Dossier\DossierStatus;
+use Shared\Domain\Search\Index\ElasticDocumentType;
+use Shared\Domain\Search\Index\Schema\ElasticField;
+use Shared\Domain\Search\Index\Schema\ElasticNestedField;
+use Shared\Domain\Search\Index\Schema\ElasticPath;
+use Shared\Domain\Search\Query\Facet\FacetList;
+use Shared\Domain\Search\Query\Facet\Input\StringValuesFacetInput;
+use Shared\Domain\Search\Query\SearchParameters;
+use Shared\Domain\Search\Query\SearchType;
+use Shared\Service\Search\Model\FacetKey;
+use Shared\Service\Search\Query\Dsl\Query;
+
+use function array_map;
+
+class ContentAccessConditionBuilder implements QueryConditionBuilderInterface
+{
+    public function applyToQuery(FacetList $facetList, SearchParameters $searchParameters, BoolQuery $query): void
+    {
+        /** @var StringValuesFacetInput $inquiryDossierFacetInput */
+        $inquiryDossierFacetInput = $searchParameters->facetInputs->getByFacetKey(FacetKey::INQUIRY_DOSSIERS);
+
+        /** @var StringValuesFacetInput $inquiryDocumentFacetInput */
+        $inquiryDocumentFacetInput = $searchParameters->facetInputs->getByFacetKey(FacetKey::INQUIRY_DOCUMENTS);
+
+        if ($inquiryDossierFacetInput->isNotActive() && $inquiryDocumentFacetInput->isActive()) {
+            // If a documentInquiries filter is active but no dossierInquiries filter: limit results to documents.
+            // Otherwise all dossiers will match as there are no dossier conditions for documentInquiries.
+            $searchType = SearchType::DOCUMENT;
+        } else {
+            $searchType = $searchParameters->searchType;
+        }
+
+        switch ($searchType) {
+            case SearchType::DOCUMENT:
+                $query->addFilter($this->createSubTypesQuery(
+                    $inquiryDossierFacetInput,
+                    $inquiryDocumentFacetInput,
+                    [ElasticDocumentType::WOO_DECISION_DOCUMENT],
+                ));
+                break;
+            case SearchType::DOSSIER:
+                $query->addFilter($this->createTypesQuery(
+                    $inquiryDossierFacetInput,
+                    [ElasticDocumentType::WOO_DECISION],
+                ));
+                break;
+            default:
+                $query->addFilter(
+                    Query::bool(
+                        should: $this->getFiltersForAllTypes($searchParameters),
+                    )->setParams(['minimum_should_match' => 1]),
+                );
+                break;
+        }
+    }
+
+    /**
+     * @param array<int, ElasticDocumentType> $subTypes
+     */
+    private function createSubTypesQuery(
+        StringValuesFacetInput $inquiryDossierFacetInput,
+        StringValuesFacetInput $inquiryDocumentFacetInput,
+        array $subTypes,
+    ): BoolQuery {
+        $query = Query::bool(
+            filter: [
+                Query::terms(
+                    field: ElasticField::TYPE->value,
+                    values: $this->getTypeTerms($subTypes),
+                ),
+            ],
+        );
+
+        if ($inquiryDossierFacetInput->isActive() || $inquiryDocumentFacetInput->isActive()) {
+            $statuses = [
+                DossierStatus::PUBLISHED->value,
+                DossierStatus::PREVIEW->value,
+            ];
+
+            if ($inquiryDocumentFacetInput->isActive()) {
+                $query->addFilter(
+                    Query::terms(
+                        field: ElasticField::INQUIRY_IDS->value,
+                        values: $inquiryDocumentFacetInput->getStringValues(),
+                    ),
+                );
+            }
+
+            if ($inquiryDossierFacetInput->isActive()) {
+                $query->addFilter(
+                    Query::nested(
+                        path: ElasticNestedField::DOSSIERS->value,
+                        query: Query::terms(
+                            field: ElasticPath::dossiersInquiryIds()->value,
+                            values: $inquiryDossierFacetInput->getStringValues(),
+                        ),
+                    ),
+                );
+            }
+        } else {
+            $statuses = [
+                DossierStatus::PUBLISHED->value,
+            ];
+        }
+
+        $query->addFilter(
+            Query::nested(
+                path: ElasticNestedField::DOSSIERS->value,
+                query: Query::terms(
+                    field: ElasticPath::dossiersStatus()->value,
+                    values: $statuses,
+                ),
+            ),
+        );
+
+        return $query;
+    }
+
+    /**
+     * @param array<int, ElasticDocumentType> $types
+     */
+    private function createTypesQuery(StringValuesFacetInput $inquiryDossierFacetInput, array $types): BoolQuery
+    {
+        $query = Query::bool(
+            filter: [
+                Query::terms(
+                    field: ElasticField::TYPE->value,
+                    values: $this->getTypeTerms($types),
+                ),
+            ],
+        );
+
+        if ($inquiryDossierFacetInput->isActive()) {
+            $statuses = [
+                DossierStatus::PUBLISHED->value,
+                DossierStatus::PREVIEW->value,
+            ];
+            $query->addFilter(
+                Query::terms(
+                    field: ElasticField::INQUIRY_IDS->value,
+                    values: $inquiryDossierFacetInput->getStringValues(),
+                ),
+            );
+        } else {
+            $statuses = [
+                DossierStatus::PUBLISHED->value,
+            ];
+        }
+
+        $query->addFilter(
+            Query::terms(
+                field: ElasticField::STATUS->value,
+                values: $statuses,
+            ),
+        );
+
+        return $query;
+    }
+
+    /**
+     * @return array<array-key, BoolQuery>
+     */
+    private function getFiltersForAllTypes(SearchParameters $searchParameters): array
+    {
+        /** @var StringValuesFacetInput $inquiryDossierFacetInput */
+        $inquiryDossierFacetInput = $searchParameters->facetInputs->getByFacetKey(FacetKey::INQUIRY_DOSSIERS);
+
+        /** @var StringValuesFacetInput $inquiryDocumentFacetInput */
+        $inquiryDocumentFacetInput = $searchParameters->facetInputs->getByFacetKey(FacetKey::INQUIRY_DOCUMENTS);
+
+        return [
+            $this->createTypesQuery($inquiryDossierFacetInput, ElasticDocumentType::getMainTypes()),
+            $this->createSubTypesQuery($inquiryDossierFacetInput, $inquiryDocumentFacetInput, ElasticDocumentType::getSubTypes()),
+        ];
+    }
+
+    /**
+     * @param array<int, ElasticDocumentType> $types
+     *
+     * @return array<int, string>
+     */
+    private function getTypeTerms(array $types): array
+    {
+        return array_map(
+            static fn (ElasticDocumentType $type) => $type->value,
+            $types,
+        );
+    }
+}

@@ -1,0 +1,107 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Tests\Unit\Service\Search\Result;
+
+use Elastic\Elasticsearch\Response\Elasticsearch;
+use Knp\Component\Pager\PaginatorInterface;
+use Mockery;
+use Mockery\MockInterface;
+use Psr\Log\LoggerInterface;
+use Shared\Domain\Search\Query\Facet\Definition\DateFacet;
+use Shared\Domain\Search\Query\Facet\Definition\PrefixedDossierNumberFacet;
+use Shared\Domain\Search\Query\Facet\Input\DateFacetInput;
+use Shared\Domain\Search\Query\Facet\Input\FacetInputCollection;
+use Shared\Domain\Search\Query\Facet\Input\StringValuesFacetInput;
+use Shared\Domain\Search\Query\SearchParameters;
+use Shared\Domain\Search\Result\ResultFactory;
+use Shared\Service\Search\Model\FacetKey;
+use Shared\Service\Search\Query\Sort\ViewModel\SortItems;
+use Shared\Service\Search\Query\Sort\ViewModel\SortItemViewFactory;
+use Shared\Service\Search\Result\AggregationMapper;
+use Shared\Service\Search\Result\ResultTransformer;
+use Shared\Tests\Unit\UnitTestCase;
+use Symfony\Component\HttpFoundation\ParameterBag;
+use Symfony\Component\Translation\LocaleSwitcher;
+
+use function file_get_contents;
+use function json_decode;
+
+use const DIRECTORY_SEPARATOR;
+
+class ResultTransformerTest extends UnitTestCase
+{
+    private LoggerInterface&MockInterface $logger;
+    private PaginatorInterface&MockInterface $paginator;
+    private AggregationMapper&MockInterface $aggregationMapper;
+    private ResultFactory&MockInterface $resultFactory;
+    private SortItemViewFactory&MockInterface $sortItemViewFactory;
+    private ResultTransformer $transformer;
+
+    protected function setUp(): void
+    {
+        $this->logger = Mockery::mock(LoggerInterface::class);
+        $this->paginator = Mockery::mock(PaginatorInterface::class);
+        $this->aggregationMapper = Mockery::mock(AggregationMapper::class);
+        $this->resultFactory = Mockery::mock(ResultFactory::class);
+        $this->sortItemViewFactory = Mockery::mock(SortItemViewFactory::class);
+
+        $this->transformer = new ResultTransformer(
+            $this->logger,
+            $this->paginator,
+            $this->aggregationMapper,
+            $this->resultFactory,
+            $this->sortItemViewFactory,
+        );
+    }
+
+    public function testTransform(): void
+    {
+        $facetInputs = new FacetInputCollection(...[
+            FacetKey::PREFIXED_DOSSIER_NUMBER->value => StringValuesFacetInput::fromParameterBag(
+                new PrefixedDossierNumberFacet(),
+                new ParameterBag(),
+            ),
+            FacetKey::DATE->value => DateFacetInput::fromParameterBag(new DateFacet(new LocaleSwitcher('nl', [])), new ParameterBag()),
+        ]);
+
+        $searchParameters = new SearchParameters(
+            facetInputs: $facetInputs,
+        );
+
+        $response = Mockery::mock(Elasticsearch::class);
+
+        $json = file_get_contents(__DIR__ . DIRECTORY_SEPARATOR . 'response.json');
+        if ($json === false) {
+            $this->markTestSkipped('Could not load JSON response');
+        }
+
+        $data = json_decode($json, true);
+        $response->expects('asArray')->andReturn($data);
+
+        $this->aggregationMapper->expects('map')->times(7);
+        $this->resultFactory->expects('map')->times(10);
+
+        $sortItems = Mockery::mock(SortItems::class);
+        $this->sortItemViewFactory->expects('make')->with($searchParameters)->andReturn($sortItems);
+
+        $routeName = 'foo';
+        $routeParameters = ['foo' => 'bar'];
+
+        $result = $this->transformer->transform(
+            [],
+            $searchParameters,
+            $response,
+            $routeName,
+            $routeParameters,
+        );
+
+        self::assertEquals(16, $result->getResultCount());
+        self::assertEquals(6, $result->getDossierCount());
+        self::assertSame($sortItems, $result->getSortItems());
+        self::assertSame($searchParameters, $result->getSearchParameters());
+        self::assertSame($routeName, $result->getRouteName());
+        self::assertSame($routeParameters, $result->getRouteParameters());
+    }
+}

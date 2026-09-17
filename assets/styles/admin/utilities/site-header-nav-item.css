@@ -1,0 +1,27 @@
+@utility bhr-site-header-nav-item {
+  @apply block font-bold leading-4 p-4 lg:py-7 text-lg;
+}
+
+@utility bhr-site-header-nav-item--anchor {
+  @apply hover-focus:bhr-site-header-nav-item--active;
+}
+
+@utility bhr-site-header-nav-item--active {
+  @apply bg-white text-bhr-gray-900;
+}
+
+@utility bhr-site-header-nav-item--divider {
+  @apply relative after:content-[''] after:bg-bhr-gray-700 after:absolute after:w-px after:inset-y-0 after:right-0 after:my-2;
+}
+
+@utility bhr-site-header-nav-item--skip-link {
+  @apply sr-only focus:not-sr-only focus:px-4 focus:py-8;
+}
+
+@utility bhr-site-header-sub-nav-item {
+  @apply block border-y border-white text-black px-4 py-3.5 hover:bg-bhr-blue-0;
+
+  &.bhr-site-header-sub-nav-item--active {
+    @apply font-bold pointer-events-none;
+  }
+}

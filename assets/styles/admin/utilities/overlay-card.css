@@ -1,0 +1,4 @@
+@utility bhr-overlay-card {
+  @apply absolute bg-white border border-bhr-gray-300 z-10;
+  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.1);
+}

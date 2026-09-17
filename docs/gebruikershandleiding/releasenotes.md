@@ -1,0 +1,912 @@
+<!-- markdownlint-disable MD024 MD036 -->
+
+# Release notes
+
+## v3.5.0
+
+### Publieke website
+
+- **Opmaak in omschrijvingen van onderwerpen** Vetgedrukte, cursieve tekst en links in de omschrijving van een onderwerppagina worden nu correct weergegeven op de publieke website.
+- **Onderwerppagina’s op homepage en categorieoverzicht** Op de homepage en het overzicht met alle categorieën worden onderwerpen met een beschikbare landingspagina getoond. Bij meer dan tien onderwerpen is er een link naar het volledige overzicht.
+
+### Balie
+
+- **Verhaallijn aanmaken en bewerken** Bij een onderwerp kan een verhaallijn worden opgebouwd met een titel, achtergrond, conclusie en verschillende onderliggende onderdelen. Tijdens het bewerken is een eenvoudige preview van de inhoud beschikbaar.
+- **Duidelijkere kolomnamen in de inventarislijst** De namen van verschillende kolommen in de inventarislijst zijn verduidelijkt, zodat beter zichtbaar is welke informatie over het document en gerelateerde documenten wordt getoond.
+- **Betrouwbaardere weergave na uploaden** Een succesvol geüpload bestand wordt nu ook correct weergegeven wanneer de gebruikelijke animatie na het uploaden niet volledig wordt uitgevoerd.
+- **Eén vaste prefix per organisatie** Een organisatie heeft voortaan één vaste en verplichte prefix. Bij het aanmaken van een organisatie wordt deze ingesteld en daarna kan de prefix niet meer worden gewijzigd.
+
+### Publication Api
+
+- **Previewlinks voor gekoppelde zaken** Bij Woo-besluiten met gekoppelde zaken kan de API de bijbehorende preview links teruggeven. Hierdoor kunnen bestaande preview links rechtstreeks via de API worden opgevraagd.
+- **Beheer van onderwerplandingspagina’s uitgebreid** Via de API kunnen nu dezelfde eigenschappen van een onderwerplandingspagina worden beheerd als via de Balie, waaronder de slug, titel, omschrijving, verhaallijn en zichtbaarheid daarvan.
+- **Vereenvoudigd gebruik van organisatieprefix** De API werkt met één vaste prefix per organisatie. De eerdere lijst met prefixes en het aparte endpoint voor organisatieprefixes zijn verwijderd.
+
+### Overige verbeteringen
+
+- **Geschiedenis bij vervangen van documenten** Wanneer een besluitbrief of bijlage wordt vervangen, wordt deze wijziging nu zichtbaar in de geschiedenis.
+- **Documentnummers consistenter verwerkt** De interne verwerking van documentnummers is vereenvoudigd zonder de bestaande documentnummers, openbare URL’s, zoekresultaten, exports en downloadnamen te wijzigen.
+- **Documentatie rond publicatiecontext bijgewerkt** De documentatie is uitgebreid met informatie over publicatiecontext en de opbouw van documentnummers als combinatie van publicatiecontext en document-id.
+- **Publicatiecontext in zoeken** De publicatiecontext van documenten is toegevoegd aan de zoekindex en kan daardoor worden gebruikt bij het zoeken naar documenten.
+- **Nieuwe bijlage bij een al gepubliceerd Woo-besluit** Bij het toevoegen van een bijlage aan een gepubliceerd Woo-besluit kon een foutmelding ontstaan wanneer de metadata al was bijgewerkt,
+ maar het document zelf nog niet volledig was geüpload. Dit wordt nu ondervangen door een melding te tonen dat het document nog wordt geüpload.
+
+## v3.4.0
+
+### Highlights
+
+- **Landingspagina’s voor onderwerpen** Onderwerpen kunnen nu worden voorzien van een eigen landingspagina met aanvullende informatie. Bezoekers kunnen vanaf deze pagina ook direct doorklikken naar alle publicaties die bij het onderwerp horen.
+- **Uitgebreide content bij onderwerpen (Verhaallijnen)** Via de Publication API kan gestructureerde content voor onderwerpen worden aangeleverd, waaronder introducties, meerdere niveaus van subsecties en afsluitende content.
+De aangeleverde volgorde en structuur blijven behouden.
+
+### Publieke website
+
+- **Documenten standaard gesorteerd op documentnummer** Documentlijsten bij Woo-publicaties worden standaard oplopend op documentnummer gesorteerd. Hierdoor worden documenten in een meer voorspelbare volgorde weergegeven.
+
+### Balie
+
+- **Documentdatum zonder tijd** Bij documenten wordt voortaan alleen de documentdatum getoond en opgeslagen waar een tijdcomponent niet van toepassing is.
+- **Duidelijkere foutmelding bij ontbrekende gegevens** Bij het uploaden van een productierapport wordt duidelijker aangegeven welke vereiste kolommen ontbreken.
+- **Beheer van onderwerp-landingspagina’s** Beheerders kunnen voor onderwerpen een landingspagina activeren, content toevoegen en wijzigen en de pagina weer uitschakelen. Ingevoerde content blijft bewaard wanneer een landingspagina tijdelijk wordt uitgeschakeld.
+
+### Publication Api
+
+- **Uitgebreide ondersteuning voor onderwerpcontent** De API ondersteunt het aanleveren van gestructureerde content (Verhaallijnen) die aan een onderwerp is gekoppeld. Dit vormt de basis voor uitgebreidere onderwerp-landingspagina’s op de publieke website.
+
+- **Betere afscherming van onderwerpen** Bij het wijzigen of verwijderen van een onderwerp controleert de API nu ook of het onderwerp bij de juiste organisatie hoort. Hiermee wordt voorkomen dat een onderwerp buiten de bedoelde organisatiecontext wordt aangepast.
+- **Verbeterde API-documentatie** Ontbrekende Engelse vertalingen voor keuzewaarden zijn toegevoegd, zodat de API-documentatie geen interne vertaalsleutels meer toont.
+- **Betrouwbaardere verwerking van organisatieprefixen** Bij het bepalen van een prefix via de API worden gearchiveerde prefixes niet langer meegenomen.
+
+### Overige verbeteringen
+
+- **Documentidentificatie aangescherpt** Elk document moet nu een document-ID hebben. Dit versterkt de consistentie van documentnummers en voorkomt ongeldige documentrecords.
+- **Basis voor één prefix per organisatie** Er is een nieuwe basis toegevoegd waarmee een organisatie één eigen prefix kan gebruiken. Bestaande dossier- en publieke URL’s blijven hierbij ongewijzigd.
+- **Uitgebreidere logging** Er is extra logging toegevoegd om incidentele API-fouten beter te kunnen analyseren. Omdat uit het issue geen directe verandering voor eindgebruikers blijkt, is dit niet opgenomen in de hoofdrelease notes.
+
+## v3.3.0
+
+### Highlights
+
+- **Gepubliceerde dossiers zijn beter te beheren via de Publication API.** Aan bestaande gepubliceerde dossiers kunnen nu nieuwe documenten en bijlagen worden toegevoegd en bestaande documenten kunnen worden aangepast.
+- **Documenten kunnen via de API worden ingetrokken.** Daarbij kan een reden en toelichting worden meegegeven; ingetrokken documenten zijn vervolgens niet meer te downloaden via de publieke website.
+- **Productierapporten ondersteunen meer kolomnamen.** Hierdoor kunnen meer productierapporten rechtstreeks worden geïmporteerd zonder voorafgaande aanpassingen.
+
+### Publieke Website
+
+- **Juiste benaming voor Wob-besluiten in de navigatie**: De navigatie maakt nu onderscheid tussen Woo- en Wob-besluiten. Een dossier van het type Wob wordt daardoor ook als **Wob-besluit** weergegeven.
+- **Juiste gebeurtenis in documentgeschiedenis**: Bij een nieuw document vermeldt de geschiedenis nu dat het document is **aangemaakt**, in plaats van dat het is **vervangen**.
+- **Geen onjuiste melding bij niet-openbare documenten**: Bij documenten die als niet openbaar zijn beoordeeld, wordt niet langer ten onrechte aangegeven dat het document nog beschikbaar moet komen.
+
+### Balie
+
+- **Betere ondersteuning van productierapporten**: De import van productierapporten herkent aanvullende benamingen voor datum- en beoordelingskolommen. Hierdoor kunnen bestanden met deze alternatieve kolomnamen direct worden verwerkt.
+- **Extra controle op Markdown-invoer**: Markdown-velden kunnen nu worden gecontroleerd op niet-toegestane onderdelen. Wanneer een niet-toegestaan onderdeel wordt gebruikt, wordt hierover een duidelijke validatiemelding gegeven.
+- **Documenten toevoegen aan gepubliceerde dossiers**: Bij een gepubliceerd dossier kunnen nieuwe documenten en bijlagen worden toegevoegd en bestaande documenten worden aangepast. Bestaande documenten of bijlagen kunnen daarbij niet worden verwijderd.
+
+### Publication Api
+
+- **Documenten intrekken via de API**: Gepubliceerde documenten kunnen nu ook via de API worden ingetrokken, inclusief een reden en toelichting. Het document is daarna niet meer te downloaden en op de oorspronkelijke documentpagina
+wordt aangegeven dat het document is ingetrokken.
+
+### Overige
+
+- **Opnieuw bijwerken van een gepubliceerd dossier**: Bij het opnieuw aanleveren van gegevens voor een gepubliceerd dossier zorgen verschillen in publicatie- en verstrekkingdatums niet langer voor een validatiefout.
+Deze datums worden na publicatie niet meer via deze update gewijzigd.
+- **Gebruikersdocumentatie bijgewerkt**: Verschillende onderdelen van de technische en functionele documentatie zijn bijgewerkt om beter aan te sluiten op de huidige werking van het platform.
+
+## v3.2.0
+
+### Publieke Website
+
+- **Documentatie per omgeving**: De gebruikersdocumentatie kan nu per omgeving de juiste huisstijl, verwijzingen en links tonen.
+- **Detailpagina voor mededelingen niet-openbaar**: Een mededeling niet-openbaar heeft een eigen detailpagina met de documentdatum, informatiecategorie, uitzonderingsgronden en eventuele toelichting. Omdat het oorspronkelijke document niet openbaar is,
+bevat deze pagina geen downloadmogelijkheid of documentviewer.
+- **Aangepaste homepage-afbeelding per omgeving**: De homepage kan nu een omgevingseigen headerafbeelding tonen.
+- **Consistente broodkruimels en paginatitels**: Broodkruimels en titels op dossier-, document- en bijlagepagina’s zijn vereenvoudigd en gelijkgetrokken. Hierdoor worden lange of wisselende dossier- en documentnamen niet meer onnodig in de navigatie herhaald.
+- **Publicatiecontext op de website**: Het volledige documentnummer wordt nu consequent getoond in zoekresultaten, documentoverzichten en op documentpagina’s. In documenttabellen wordt de losse identificatie duidelijker aangeduid als ‘ID’.
+- **Correcte wetsverwijzingen**: Links bij uitzonderingsgronden verwijzen nu naar de wet die daadwerkelijk op het document van toepassing is.
+
+### Balie
+
+- **Bronbestandtype ‘meerdere’**: Voor verzameldocumenten kan het bronbestandtype ‘meerdere’ worden opgegeven. Dit type heeft een eigen pictogram en kan als zoekfilter worden gebruikt.
+- **Publicatiecontext in productierapporten**: Productierapporten ondersteunen een kolom ‘Publicatiecontext’, waarmee documentnummers op een vaste manier worden samengesteld. Een rapport kan niet tegelijkertijd de oude en de nieuwe contextkolom bevatten.
+- **Optionele documentcontext**: Bij het aanleveren van documenten via productierapporten en de API is de oude contextwaarde niet langer altijd verplicht. Documentnummers kunnen daardoor ook zonder deze waarde worden opgebouwd,
+waarbij conflicterende nummers worden geweigerd.
+- **Uploadbeveiliging voor gepubliceerde dossiers**: Nieuwe uploads van hoofddocumenten en bijlagen kunnen centraal worden geblokkeerd zodra een dossier is gepubliceerd. Deze controle kan met een configuratie-instelling worden beheerd.
+- **Directe uitsluiting tussen hoofddocument en mededeling**: Zodra een hoofddocument of mededeling niet-openbaar is toegevoegd, wordt de andere mogelijkheid direct uitgeschakeld. Een pagina opnieuw laden is hiervoor niet meer nodig.
+- **Verplichte documentkeuze bij publiceren**: Een publicatie kan niet meer zonder hoofddocument én zonder mededeling niet-openbaar worden afgerond. Bij beide invoermogelijkheden verschijnt een duidelijke validatiemelding.
+- **Mededelingen niet-openbaar bewerken**: Een bestaande mededeling niet-openbaar kan weer correct worden aangepast. De samenvatting van de mededeling is daarnaast consistenter vormgegeven in het formulier en het dossieroverzicht.
+- **Duidelijkere fouten bij productierapporten**: Onverwachte fouten tijdens het verwerken van een productierapport worden beter vastgelegd en getoond. Waar mogelijk wordt ook aangegeven in welke rij de fout is ontstaan.
+
+### Publication API
+
+- **Mededelingen niet-openbaar via de API**: Via de publicatie-API kan een mededeling niet-openbaar worden aangeleverd in plaats van een hoofddocument. De API controleert dat altijd precies één van beide aanwezig is.
+- **Publicatiecontext via de API**: De publicatie-API ondersteunt het veld `publicationContext` voor documenten. Het documentnummer wordt samengesteld uit de publicatiecontext en het document-ID.
+- **Documenten intrekken via de API**: Gepubliceerde documenten kunnen via de API worden ingetrokken, inclusief een reden en toelichting. Het document kan daarna niet meer worden gedownload en de publieke pagina toont dat het is ingetrokken.
+- **Completere API-specificatie**: Verplichte velden zijn nu correct gemarkeerd in de API-specificatie. Hierdoor sluiten automatische controles beter aan op de daadwerkelijke validatie van de API.
+- **Correcte API-links**: Links die door de API worden teruggegeven, verwijzen nu naar het juiste API-adres in plaats van naar het webadres.
+- **Validatie van wijzigingen na publicatie**: Velden die na publicatie niet meer mogen veranderen, worden door de API geweigerd. Toegestane wijzigingen blijven beschikbaar.
+- **Uploads via dossierupdates tijdelijk geweigerd**: Het uploaden van nieuwe bestanden tijdens een API-update van een gepubliceerd dossier wordt voorlopig geweigerd met een correcte foutmelding.
+- **Kwaliteitscontrole voor API-specificaties**: De automatische controle van de API-specificaties is uitgebreid, zodat ontbrekende of ongeldige definities eerder in het ontwikkelproces worden gevonden.
+
+### Overige
+
+- **Geen serverfout na correctie van een dossiernummer**: Het aanpassen van een dossiernummer na een eerdere validatiefout veroorzaakt niet langer een serverfout.
+- **Geen serverfout bij wijziging van een document-ID**: Bepaalde opeenvolgende wijzigingen aan documentidentificaties veroorzaakten een serverfout. Deze situatie wordt nu correct verwerkt.
+- **Alle afgeleide gegevens bijgewerkt na nummerwijziging**: Na het wijzigen van een referentienummer worden downloadlijsten, inventarislijsten, gekoppelde zaken en zoekgegevens opnieuw bijgewerkt.
+- **Betrouwbaardere databasetests**: Een ontbrekende database-index is aan de testomgeving toegevoegd. Hierdoor kunnen conflicten tussen documentnummers die alleen in hoofdletters verschillen beter worden getest.
+- **Detailpagina mededeling niet-openbaar hersteld**: Een verouderde naam in templates veroorzaakte een serverfout op sommige detailpagina’s. Deze pagina’s worden nu weer correct weergegeven.
+- **Duidelijke melding bij dubbel referentienummer**: Het invoeren van een al gebruikt referentienummer in de beheeromgeving veroorzaakt niet langer een serverfout. De gebruiker ontvangt nu een normale validatiemelding.
+- **Gewijzigde besluitnaam in inventaris**: Wanneer de naam van een gepubliceerd besluit wordt aangepast, wordt deze wijziging nu ook in de inventarislijst verwerkt.
+- **Geen onnodige wijzigingsacties voor ongewijzigde titels**: Een ongewijzigde dossiertitel werd ten onrechte als wijziging geregistreerd. Hierdoor ontstonden onnodige geschiedenisregels en achtergrondtaken; dit is gecorrigeerd.
+- **Betere verwerking van metadatawijzigingen**: Bij het wijzigen van metadata van een gepubliceerd dossier via de API worden de benodigde vervolgacties gezamenlijk uitgevoerd. Dit omvat onder meer het vernieuwen van zoekgegevens,
+geschiedenis en relevante afgeleide bestanden.
+- **Verbeterde kwaliteit van mededelingen niet-openbaar**: Ontbrekende vertalingen, foutafhandeling en enkele weergaveproblemen rond mededelingen niet-openbaar zijn opgelost. Ook zijn de interne vervolgacties na het wijzigen van een
+mededeling consistenter gemaakt.
+- **Duidelijkere routebenamingen**: Interne routeparameters gebruiken nu duidelijkere en consistentere namen. Dit maakt routes beter leesbaar en verkleint de kans op verwisseling.
+- **Voorkomen van dubbele achtergrondtaken**: Dezelfde vervolgactie wordt niet langer meerdere keren gestart wanneer verschillende wijzigingen binnen één bewerking tot hetzelfde resultaat leiden.
+
+## v3.1.0
+
+### Balie
+
+- **Adviesaanvraag weer beschikbaar voor alle gebruikers**: Het aanmaken van een publicatie van het type 'Adviesaanvraag' was beperkt tot slechts super-admins; dit is hersteld en is nu voor alle gebruikers toegestaan.
+- **Periode zonder startdatum weer mogelijk**: Een Woo-besluit met alleen een 'tot en met'-datum (bijvoorbeeld "Tot januari 2026") gaf ten onrechte een foutmelding bij het opslaan; dit is opgelost.
+- **Geschiedenisrij toont juiste zaaknummers**: In de geschiedenistabel van een publicatie werd de placeholdertekst `{inquiry_numbers}` getoond in plaats van de daadwerkelijke zaaknummers; bij nieuwe publicaties zal het nu correct getoond worden
+- **Productierapport wordt correct opgeruimd**: Wanneer het besluittype van een conceptpublicatie wordt gewijzigd naar 'Geen documenten aangetroffen', wordt een eerder geüpload productierapport (en de bijbehorende documenten) nu ook daadwerkelijk verwijderd.
+
+### Publication API
+
+#### Naamgeving en consistentie
+
+- **documentNumber & dossierNumber**: De velden `documentNr` en `dossierNr` zijn hernoemd naar `documentNumber` en `dossierNumber` voor consistente naamgeving in de gehele API.
+- **Validatie van dossierId/documentId parameters**: Ongeldige waarden voor `dossierId`- en `documentId`-padparameters worden nu correct afgewezen.
+- **Validatie van organisationId**: Padparameters die niet aan het verwachte UUID-formaat voldoen geven nu een 404 in plaats van een onverwachte serverfout.
+
+#### Validatie en foutafhandeling
+
+- **Lege documentId niet meer toegestaan**: Een leeg documentId bij een WooDecision-document werd onterecht geaccepteerd; dit geeft nu een 422-foutresponse.
+- **Matter accepteert alleen toegestane tekens**: Het `matter`-veld accepteerde voorheen elk teken, inclusief regeleinden; nu wordt gevalideerd op het toegestane tekenformaat (`[a-zA-Z0-9-._~]`).
+- **documentMatter-formaat gedocumenteerd**: Het verwachte formaat van `documentMatter` is toegevoegd aan de API-documentatie.
+- **500-fout op JSON-sleutels met `[` opgelost**: Een JSON request body met een property key die begint met `[` veroorzaakte een onverwachte 500-fout; dit geeft nu een correcte 400/422-foutresponse.
+- **Paginering: ongeldige typen worden afgewezen**: Het `pagination`-queryparameter accepteerde eerder ook ongeldige typen (zoals arrays of losse getallen) zonder foutmelding; dit wordt nu correct gevalideerd.
+
+#### Paginering
+
+- **Cursor en metadata in collectie-responses**: Collectie-endpoints geven nu een `_links.next` cursor en `hasNextPage` mee in de response, zodat clients correct kunnen doorpagineren.
+
+### Publieke website
+
+- **Alle onderwerpen zichtbaar op homepage**: Op de homepage werden onder 'Zoek per categorie' > 'Onderwerpen' altijd maar 5 onderwerpen getoond, zonder link naar de rest.
+Nu worden de zes meest gebruikte onderwerpen getoond met een link naar de volledige lijst, net als bij informatiecategorieën.
+
+### Overig
+
+- **Bruno-collectie vermeld in API-documentatie**: De gebruikershandleiding verwijst nu naar de Bruno-collectie in de public repo, inclusief uitleg voor afnemers zoals Minfin.
+- **Sitemap-crash door ongeldige documentId's opgelost**: Documenten met komma's of regeleinden in het `document_id` veroorzaakten een crash bij het genereren van de sitemap; dit is verholpen.
+
+## v3.0.0
+
+### Publication API
+
+#### Productierapport
+
+- **Productierapport verwijderen**: Het is nu mogelijk om een productierapport te verwijderen als een productierapport niet vereist is.
+- **Matter optioneel**: Het `matter`-veld is optioneel gemaakt, voor zowel het productierapport als de API - het documentnummer wordt nu opgebouwd uit prefix en document ID.
+- **Validatie van URLs**: URLs in inventaris-links en opmerkingen worden nu gevalideerd.
+- **Verbeterde foutafhandeling**: Foutmeldingen bij verwerking van het productierapport zijn duidelijker gemaakt.
+
+#### Documenten en uploads
+
+- **Geen upload vereist bij already_public**: Voor documenten met beoordeling `already_public` is geen upload vereist, dus uploads voor deze documenten worden niet meer toegestaan.
+- **404 in plaats van 422**: Uploads naar een niet-bestemmend dossier geven nu een 404 in plaats van een 422-fout.
+- **DocumentId met dashes**: DocumentId's mogen nu ook dashes bevatten.
+- **DocumentNr-update**: Het wijzigen van de `documentId` van een WooDecision-document werkt de `documentNr` nu correct bij.
+- **Maximumaantal documenten/bijlagen**: Er wordt nu gevalideerd op het maximaal toegestane aantal documenten en bijlagen per dossier.
+- **Nieuwe attachment-types**: PLOOI documentsoorten zijn bijgewerkt naar v7 en de bijbehorende vertalingen zijn toegevoegd.
+
+#### Validatie en foutafhandeling
+
+- **refersTo-validatie**: `refersTo` wordt nu gevalideerd voordat een WooDecision wordt opgeslagen, inclusief duidelijke foutmeldingen bij een ongeldig externalId-formaat.
+- **Duidelijkere validatiefouten**: Validatiefoutmeldingen zijn op meerdere plekken in de API duidelijker gemaakt.
+- **Lege response bodies in API-docs**: De API-documentatie toont lege response bodies nu correct.
+
+#### Subjects en organisaties
+
+- **Subject als embedded object**: Het `subject` wordt nu als embedded object opgenomen in dossier API-responses.
+- **Unieke subjects**: Subjects worden nu uniek afgedwongen via de API.
+- **Subject opruimen**: Een subject dat niet meer gebruikt wordt, kan nu verwijderd worden.
+- **Department/organisation-relatie**: Een relatie tussen department en organisation is toegevoegd aan de API.
+
+#### HAL en endpoints
+
+- **Prefix-endpoint verwijderd**: Het losse POST-endpoint voor de prefix is verwijderd uit de API.
+- **HAL-links uitgebreid**: URLs zijn toegevoegd aan HAL-responses.
+- **Geen publieke HAL-links in preview**: Een WooDecision in preview-status toont niet langer publieke HAL-links.
+
+### Balie en publieke website
+
+- **Verantwoordelijke bestuursorganen**: Deze worden nu op één consistente manier getoond op de site, gebaseerd op selectie ipv zoekresultaten.
+
+### Infrastructuur en tenant-awareness
+
+- **Configureerbare base urls**: Base urls zijn per tenant configureerbaar gemaakt.
+- **Elasticsearch users en rollen**: Elasticsearch-gebruikers en -rollen zijn geïntroduceerd.
+
+### Fixes en technische verbeteringen
+
+- **Attachment-mapping**: De afhandeling van attachments in dossier-mappers is verbeterd.
+- **Deprecations opgeschoond**: Diverse Symfony/Doctrine-deprecations zijn opgelost (routing, controller resolver, native lazy objects, request->get, polyfill-intl-idn, e.a.).
+- **Diverse afhankelijkheden bijgewerkt**: PHP-, Composer- en overige package-versies zijn bijgewerkt.
+- **Flysystem-config**: De Flysystem-configuratie is bijgewerkt naar het nieuwe discoverable format.
+- **Inquiry-nummer**: Verwijzingen naar "case number" zijn hernoemd naar "inquiry number" voor consistentie.
+- **OrbStack verwijderd**: De afhankelijkheid van OrbStack is verwijderd uit de ontwikkelomgeving.
+- **QR-codepreview**: Het tonen van een QR-codepreview in de terminal is gerepareerd.
+- **Robuuste verwerking van ongeldige body**: Een ongeldige JSON-body bij een API-verzoek leidt niet meer tot een onverwachte fout.
+- **SubjectProcessor**: Gebruikt nu consequent `SubjectService` om subjects op te slaan.
+- **Tika-upgrade**: De Tika-versie voor tekstextractie is aangepast.
+- **UTF-8/multibyte support**: Onveilige stringfuncties zijn vervangen door multibyte-veilige alternatieven, o.a. voor query's met multibyte-karakters.
+- **woopie-prefix verwijderd**: Het gebruik van de `woopie-`-prefix is uit de codebase verwijderd.
+
+## v2.6.0
+
+*mei 2026*
+
+### Publication API
+
+#### Audit logging
+
+- **Audit logging**: Basis audit logging is geïmplementeerd voor de publicatie API, waarmee acties via de API worden bijgehouden.
+
+#### Validatie en foutafhandeling
+
+- **RFC 7807 JSON Problem Responses**: API-foutmeldingen volgen nu de RFC 7807-standaard voor gestructureerde JSON-foutresponses.
+- **Directe validatie van bestandsuploads**: Geüploade bestanden worden nu direct gevalideerd bij ontvangst in plaats van later in de verwerkingspipeline.
+- **Validatie van bestandsnamen**: De bestandsnaam (metadata) van uploads wordt nu gevalideerd en ongeldige namen worden direct afgewezen.
+
+#### PUT-endpoint verbeteringen
+
+- **Update upload metadata**: Metadata van uploads wordt nu bijgewerkt in plaats van verwijderd en opnieuw aangemaakt, wat dataverlies voorkomt.
+- **API Bugfixing**
+  - **Idempotente WooDecision PUT**: Twee keer hetzelfde PUT-verzoek voor een WooDecision geeft geen 500-fout meer.
+  - **Re-PUT van metadata endpoints**: Herhaald PUT-verzoek op metadata-endpoints geeft geen 500-fout meer.
+  - **PUT met GET-response als body**: Het versturen van een GET-response als body bij een PUT-verzoek geeft geen 500-fout meer.
+
+#### Veldnamen en structuur
+
+- **Duidelijke naamgeving datumvelden**: Datumvelden in WooDecision hanteren nu een consistente naamgeving.
+- **PreviewDate als PlainDate**: De WooDecision `PreviewDate` is omgezet naar een `PlainDate` value object.
+- **Refactor request/response definitie**: De definitie van de request is losgekoppeld van de response, waardoor beide afzonderlijk beheerd kunnen worden.
+
+### Balie
+
+- **Referentienummer aanpassen**: Het is nu mogelijk om het referentienummer/dossierNumber van een reeds openbaar dossier aan te passen.
+
+### Fixes en technische verbeteringen
+
+- **Gebruikersdocumentatie beoordelingswaarden**: De gebruikersdocumentatie toont nu de juiste beoordelingswaarden in plaats van verkeerde waarden.
+- **E2E testen uitgebreid**: De E2E datadriver-testen ondersteunen nu ook verwachte response codes op de upload endpoints.
+
+## v2.5.0-hotfix.3
+
+- **Beveiligings updates** Deze hotfix bevat enkele beveiligings updates.
+
+## v2.5.0-hotfix.2
+
+- **Inventaris bijwerken na vervanging productierapport**: De inventaris in een zaak wordt nu correct bijgewerkt nadat een productierapport is vervangen.
+
+## v2.5.0-hotfix.1
+
+- **Verversen van inventaris lijst van een zaak** Bij het vervangen van een productierapport in de balie, wordt nu ook de inventarislijst van de zaak ververst.
+- **Multi tenancy elasticsearch** De elasticsearch instance is nu tenant-aware doordat je nu ook naar een andere instance kan verwijzen in de configuratie. Hierdoor kunnen we in de toekomst per tenant een eigen elasticsearch instance draaien.
+
+## v2.5.0
+
+*april 2026*
+
+### Publication API
+
+#### Upload endpoints per dossiertype
+
+- **Upload endpoints voor alle dossiertypen**: Nieuwe upload endpoints toegevoegd voor Advies, Adviesaanvraag, Beschikking, Convenant, Jaarplan/Jaarverslag, Klachtoordeel, Onderzoeksrapport en Overig informatiestuk.
+- **Upload processor voor Documents**: De upload processor voor API Documents is afgerond, inclusief verwerking van WooDecision documenten.
+- **Autopublisher bij async updates**: De autopublisher werk weer correct wanneer entities in asynchrone processen werden bijgewerkt.
+- **Happy flow support**: In deze versie is het mogelijk om via de API een publicatie op de Publieke Website te publiceren.
+
+#### Validatie en foutafhandeling
+
+- **Schema validatie in 400-response**: Validatiefouten worden nu getoond in de 400-response van Woo-decision.
+- **Validatie op grounds-attribuut**: Validatie toegevoegd op het `grounds`-attribuut in API dossiers.
+- **Vereist aantal documenten**: Het vereiste aantal documenten bij WooDecision is in lijn gebracht met de balie.
+
+#### Veldnamen en datatypes
+
+- **Datum-velden genormaliseerd**: DateTime-velden in de API zijn omgezet naar date-velden voor consistentie.
+- **Veldnamen gelijkgetrokken**: Naamgeving van velden is gelijkgetrokken en meer generiek gemaakt across de API.
+- **Verwijderde velden**: `Document.period`, `Dossier.internalReference` en de Dossier Prefix zijn verwijderd uit de API.
+- **SourceType niet meer gezet**: SourceType wordt niet meer gezet via de API.
+
+#### Overig
+
+- **Correcte baseUrl in API-documentatie**: De API-documentatie toont nu de juiste baseUrl.
+- **Identieke bestanden negeren**: Eerder geüploade identieke bestanden worden herkend, genegeerd en opgeruimd.
+- **Talen via TOOI-lijst**: De TOOI-lijst is geintroduceerd voor taalwaarden in de API.
+- **OpenAPI tags en Bruno-collectie**: De OpenAPI-tag van upload endpoints is bijgewerkt en de Bruno-collectie is volledig vernieuwd.
+- **API doc meldt nu binary file**: De API documentatie maakt nu expliciet melding van de binary file die meegestuurd moet worden bij de upload endpoints.
+
+### Tenant Awareness
+
+- **Multi-kernel tenant awareness uitgebreid**: Tenant Awareness is uitgebreid in de multi-kernel setup zodat applicaties nu al hun randsystemen compleet tenant-aware kunnen benaderen.
+
+### Publieke website
+
+- **Relevantie zoekresultaten "Soort besluit"**: De relevantiescoring voor "Soort besluit" in zoekresultaten op de publieke website is aangepast.
+- **Preview informatiecategorieeen**: Sommige informatiecategorieeen gaven geen preview; dit is opgelost.
+- **Melding ontbrekend bestand**: De publieke website toont nu de melding "Dit bestand is nog niet aangeleverd" wanneer een bestand nog niet beschikbaar is.
+- **Sorteren op Thema COVID-19**: Sorteren op "Thema COVID-19" bracht de gebruiker onterecht buiten het thema; dit is gecorrigeerd.
+
+### Security
+
+- **Digikoppeling validatie (WOO-2026.P1.01)**: Validatie bij Digikoppeling beperkt zich nu correct tot de common name.
+
+### Fixes en technische verbeteringen
+
+- **Dev-dependencies op productieomgevingen**: De applicatie draaide in vorige versies met dev-dependencies op alle remote omgevingen, maar nu niet meer.
+- **PlainDate value object**: Een `PlainDate` value object is geintroduceerd voor consistente datumafhandeling.
+- **OpenAPI lint-issues**: Openstaande OpenAPI lint-issues zijn opgelost.
+- **Robot Framework Docker image**: Het Robot Framework Docker-image wordt nu opgeslagen in GitHub.
+
+## v2.4.0
+
+*maart 2026*
+
+### Publicatie API
+
+- **Zaaknummers via de API aanmaken en koppelen**: Net als in de webinterface via het productierapport, kunnen zaken nu ook via de API worden aangemaakt en documenten aan zaaknummers worden gekoppeld.
+- **Uitgebreide workflow-guards voor statustransities**: Dossiers die niet aan de vereisten voldoen kunnen geen statustransitie meer doorvoeren. De guards zijn uitgebreid met business logic die geldt
+ voor alle dossiers — zowel via de balie als de API. Dossiers die gereed zijn voor publicatie krijgen automatisch de juiste status.
+- **External IDs ondersteuning in upload-URLs**: Upload-URLs accepteren nu het external ID van het dossier én de external IDs van alle entiteiten met een file upload.
+- **Uploadstatus in document GET-responses**: `MainDocument`, `Attachment` en `Document` bevatten nu een `uploadStatus`-veld met één van de volgende waarden: `no upload required`, `upload required`,
+ `processing`, `processed`, `processing failed`. Zo kan een client helder bepalen wat de al dan niet vereiste acties zijn bij het aanleveren van bestanden.
+- **Meerdere 500-fouten in non-happy-flows afgehandeld**: Serverfoutmeldingen die eerder onbehandeld bleven worden nu netjes opgepikt en de juiste responses worden teruggegeven.
+
+### Tenant Awareness
+
+- **Tenant-aware Multi-kernel**: Het platform bepaalt nu de configuratie op basis van de route en authenticatie. We lanceren met één tenantconfiguratie (MinVWS) en breiden dit stapsgewijs uit. Deze
+release bewijst dat het principe productiewaardig kan draaien.
+- **Tenant-specifieke foutmeldingen, vertalingen en thema's**: Foutmeldingen zijn nu tenant-aware. Vertalingen, thema's en de publieke website worden per tenant geconfigureerd.
+
+### Overig
+
+- **Performanceproblemen na Symfony 7.4-upgrade opgelost**: Waargenomen regressies in responsetijden bij ontwikkelomgevingen die na de upgrade waren opgetreden zijn geadresseerd om het risico te
+minimaliseren dat deze regressie ook op productie plaats zou kunnen vinden.
+
+## v2.3.0
+
+*februari 2026*
+
+### Nieuwe Functionaliteiten
+
+- **mTLS ondersteuning met behulp van PKIOverheid-certificaat**: De API, lokaal gehost in een eigen container met een toegewijde Apache-instantie om mTLS te ondersteunen, ondersteunt nu veilige communicatie middels PKIOverheid certificaten.
+- **Publicatie API v1: Ondersteuning voor Externe Dossier-ID's**: De API ondersteunt nu externe dossier-ID's (met prefix E:) voor communicatie met externe organisaties, terwijl interne operaties blijven werken met interne UUID's die niet gedeeld worden
+ met de buitenwereld.
+- **Publicatie API v1: Nieuwe Dossier Endpoints**: Voor alle informatiecategorieën die ondersteund worden door de balie zijn de benodigde endpoints toegevoegd.
+- **Publicatie API v1: Bestanden Uploaden**: Ondersteuning toegevoegd voor het uploaden van bestanden (bijv. hoofddocumenten, bijlagen) bij het posten van een dossier, inclusief bestanden voor Woo-besluiten.
+- **Publicatie API v1: TOOI Waardes**: Niet alleen zijn Tooi waardes nu ondersteund, in de OpenAPI spec zijn de TOOI waardes dusdanig gedocumenteerd dat ze leesbaar zijn voor developers.
+- **Introductie van een Gedeelde Kernel voor Meerdere Applicaties**: Een gedeelde kernel is geïntroduceerd om gemeenschappelijke configuraties te ondersteunen, terwijl maatwerkconfiguraties mogelijk blijven op basis van applicatiemodus (bijv. APP_MODE
+ of APP_ID). Deze change is tevens een essentiele voorbereiding voor het geschikt maken van de applicatie voor meerdere ministeries.
+- **Sessie lifetime configurabel**: De duur van een geldige sessie is configurabel, met een standaard waarde van één dag.
+
+### Opgeloste Bugs
+
+- Een probleem opgelost waarbij het slepen van bestanden in de frontend niet altijd werkte.
+- Een probleem opgelost waarbij het uploaden van een textbestand geweigerd werd omdat de inhoud ervan onterecht als gevaarlijk werd beschouwd.
+
+### Tijdelijke Wijzigingen
+
+- Tijdelijk de mogelijkheid uitgeschakeld om op stappen te klikken in het formulier "concept publicaties aanpassen".
+
+## v2.1.1
+
+*24 november 2025*
+
+### API
+
+- Nieuwe Publication API endpoints voor departments, prefixes & organisations
+- Validatie toegevoegd voor Publication V1 API requests en responses
+
+### Content & Data Management
+
+- Productierapport nu optioneel gemaakt bij keuze "Reeds openbaar" en "Geen openbaarmaking"
+- Document prefix filtering verbeterd (verwijdert lege prefixes uit resultaten)
+- Dossier documenten limiet is nu configureerbaar via environment variable en standaard verhoogd
+
+### Gebruikerservaring
+
+- Nieuw design toegepast
+- Betere vertalingen doorgevoerd
+
+### Development
+
+- Ondersteuning voor self-signed certificaten toegevoegd
+- OpenAPI validatie refactor doorgevoerd
+
+### Testing & Kwaliteit
+
+- Tests verbeterd: global state te verwijderd en statische data vervangen met fake-data
+- E2E tests verbeterd voor betere stabiliteit en parallel uitvoeren
+
+### Dependencies
+
+- Meerdere dependency updates (Symfony, AWS SDK, Vite, ClamAV, etc.)
+- Verschillende CI/CD verbeteringen
+
+## v2.0.0
+
+*23 oktober 2025*
+
+### Publicatie API v1
+
+De Publicatie API v1 is een API waar andere systemen mee kunnen connecten om zo volledig automatisch het publicatieproces te doorlopen.
+Dit betekent dat gebruikers vanuit een systeem zoals Zylab de publicatie kunnen initiëren en de systemen onderling de volledige en juiste afhandeling doorlopen. Zo hoeft er niet meer ingelogd te worden in de balie om de publicatie handmatig uit te voeren.
+Dit levert tijdswinst op en de kans op fouten wordt zo ook minder.
+
+#### Publicatie API v1 Skeleton
+
+Voor de eerste release hebben we een zogenaamde "Publicatie API skeleton" ontwikkeld.
+Dit is een functionele Publicatie API met minimale features.
+De beweegredenen om een skeleton te ontwikkelen is dat we zo met onze eerste stap de API op alle lagen van het systeem introduceren.
+Dit maakt het mogelijk om de kaders waarbinnen wij op moeten leveren in kaart te brengen en alle non-functionele eisen (e.g. security) te waarborgen in een zo vroeg mogelijk stadium.
+
+#### API authenticatie en authorizatie
+
+CLients van de Publicatie API identificeren zullen zich middels [PKI Overheid certificaten](https://www.pkioverheid.nl/) moeten authenticeren.
+Authorizatie zal daarna ook plaats vinden gegeven de certificaat eigenschappen.
+Deze versie van de applicatie maakt beide mogelijk op alle omgevingen.
+
+#### Publicatie API v1 Livegang
+
+De Publicatie API v1 zal nog niet meteen na release geactiveerd en openbaar gemaakt worden op de productie-omgeving.
+Deze versie zal in de komende periode zwaar getoetst worden door onze security afdeling. Eventuele zwakheden zullen worden opgelost in de volgende release.
+
+### Release ES Rollover
+
+#### ES rollover performance issues geadresseerd
+
+Bij iedere release waar aanpassingen zijn gedaan in het zoeken en vinden op de publieke website is een, zoals dat heet, rollover nodig, i.e.:
+het compleet herindexeren van alle vindbare items voor het applicatie-onderdeel dat verantwoordelijk is voor zoekresultaten tonen op basis van een zoekterm.
+Deze versie bevat meerdere verbeteringen op het gebied van performance en robuustheid.
+We blijven hier verbeteringen op doorvoeren, maar we verwachten bij deze release al resultaten te zien.
+
+### Frontend Design Systeem
+
+#### Design Systeem Geïntroduceerd
+
+Op meerdere plekken op zowel de publieke website als in de balie zullen kleine verbeteringen te vinden zijn op het gebied van leesbaarheid, duidelijkheid en consistentie.
+Dit is het resultaat van het introduceren van een design systeem: een collaboratie tussen design en frontend development, waarbij alles is opgebouwd uit herbruikbare componenten die op meerdere plekken te gebruiken zijn.
+In de toekomst verwachten we daardoor nu ook een acceleratie bij het ontwikkelen van nieuwe features voor bezoekers en gebruikers.
+
+#### Toegankelijkheid
+
+Er zijn ook verbeteringen doorgevoerd betreffende de toegankelijkheid van het systeem.
+Omdat de verbeteringen ook in de componenten van het Design Systeem zijn geïntroduceerd zijn de resultaten op meerdere plekken terug te vinden en is toegankelijkheid ook in de toekomst beter geborgd.
+
+### Security
+
+#### Pentest bevindingen verwerkt
+
+Wij werken met zware beveiligingseisen en het systeem wordt periodiek getoetst op alle security aspecten.
+Deze release bevat meerdere aanpassingen die opzettelijke aanvallen en misbruik onmogelijk maken.
+
+## v1.17.0
+
+*18 september 2025*
+
+### Balie
+
+**Vernieuwd design voor badges**
+
+De visuele stijl van badges (labels) in de balie is vernieuwd en in lijn gebracht met ons design system. Dit zorgt voor een consistentere en modernere gebruikerservaring.
+
+**Vernieuwd design voor notificaties**
+
+Ook de notificaties in de balie zijn geüpdatet volgens het nieuwe design. Hierdoor zijn meldingen duidelijker zichtbaar en beter leesbaar voor gebruikers.
+
+### Website
+
+**Aantallen opgeschorte documenten zichtbaar bij besluitinformatie**
+
+Bij elk Woo-besluit wordt nu expliciet weergegeven hoeveel (deels) openbare documenten opgeschort zijn. Dit geeft bezoekers beter inzicht in het verschil tussen het aantal openbaar gemaakte documenten en wat daadwerkelijk gedownload kan worden.
+
+**Aantallen ingetrokken en opgeschorte documenten op zaakpagina's**
+
+Op de individuele zaakpagina's worden nu afzonderlijk weergegeven hoeveel documenten zijn ingetrokken en hoeveel zijn opgeschort.
+Deze aantallen verschijnen als aparte regels in het grijze informatieblok, mits er sprake is van minimaal één ingetrokken of opgeschort document.
+
+## v1.16.1
+
+*22 augustus 2025*
+
+### Balie
+
+Bij het intrekken van een bijlage is het prullenbak-icoon vervangen door een duidelijkere knop met de tekst "Intrekken", zodat gebruikers beter zien welke actie wordt uitgevoerd.
+
+De melding “Dit besluit valt niet onder de verantwoordelijkheid van het Ministerie van VWS” is nu configureerbaar per bestuursorgaan.
+Hierdoor kan per organisatie een eigen verantwoordelijkheidstekst worden ingesteld.
+
+De helptekst boven de Markdown editor is compacter gemaakt zodat er meer ruimte is voor het invoerveld.
+
+Er zijn verbeterde invoercontroles en maximale lengtes ingesteld op diverse velden (bestuursorganen, documenten, dossiers, bijlagen, zaaknummers, onderwerpen).
+Daarnaast is een technisch limiet ingesteld van maximaal 50.000 documenten per dossier.
+Dit zorgt voor betere datakwaliteit en platformstabiliteit.
+
+### Website
+
+Op publicatiedetailpagina’s wordt nu altijd minimaal één tab getoond met de documentstatus.
+Ook wordt per tab het aantal documenten weergegeven.
+Dit maakt de status van documenten duidelijker, ook als er slechts één status aanwezig is.
+
+Bij het klikken op een informatiecategorie, zoals “Woo-besluiten”, worden voortaan alleen de besluiten zelf getoond (zonder bijlagen of onderliggende documenten).
+Hierdoor klopt het weergegeven aantal besluiten en zijn zoekresultaten relevanter.
+
+De actieve filterknoppen op de website hebben een vernieuwde stijl gekregen, in lijn met het design system waarvan het platform gebruik maakt.
+
+De mogelijkheid om documenten per dossier te downloaden via de zaakpagina is hersteld.
+Dit was tijdelijk uitgeschakeld in verband met eerdere aanpassingen.
+
+In de inventarislijst op de zaakpagina wordt nu per document weergegeven bij welk besluit het hoort.
+Dit maakt het groeperen, filteren en analyseren van documenten eenvoudiger.
+De besluitnaam hebben we ook toegevoegd aan de inventarislijst bij een besluit en zal daar logischerwijs maar één waarde hebben.
+
+## v1.15.0
+
+*10 juli 2025*
+
+### Balie
+
+Er zijn in deze release geen wijzigingen voor de balie doorgevoerd.
+
+### Website
+
+Er is een knop 'Alle filters wissen' toegevoegd op de zoekpagina’s (inclusief COVID-19 thema). Ook is er nu de optie 'Start een nieuwe zoekopdracht' bij nul resultaten. Beide brengen je terug naar een lege zoekopdracht.
+
+Op documentpagina’s wordt nu bij elke bijlage het type getoond in plaats van de datum. Dit helpt bezoekers de aard van een bijlage sneller te begrijpen.
+
+## v1.14.0
+
+*3 juli 2025*
+
+### Balie
+
+Het is nu mogelijk om los van een advies, een adviesaanvraag te publiceren.
+Reden hiervoor is dat het advies en de adviesaanvraag door andere bestuursorganen gepubliceerd kunnen worden.
+Aan de adviesaanvraag kan een link toe worden gevoegd die verwijst naar het advies bijbehorend aan de adviesaanvraag.
+
+### Website
+
+Op de website kan nu gezocht worden op adviesaanvragen. Dit is mogelijk via zowel de zoekfunctionaliteit als de filters.
+
+## v1.13.0
+
+*25 juni 2025*
+
+### Balie
+
+In het overzicht en op de detailpagina van publicaties worden nu visuele meldingen getoond voor documenten met de status 'incompleet', 'ingetrokken' of 'opgeschort'. Dit helpt om sneller actie te ondernemen.
+
+De knoppen in de balie zijn aangepast aan het vernieuwde design van ons design systeem, wat zorgt voor een consistentere en modernere uitstraling.
+
+De balie is aangepast zodat instellingen zoals standaardteksten, logo’s en metadata per ministerie configureerbaar zijn. Dit maakt het platform gereed voor breder gebruik buiten VWS.
+
+### Website
+
+Gebruikers kunnen nu zoeken binnen documenten die naar het huidige document verwijzen, binnen e-mails uit dezelfde conversatie, en in bijlagen bij e-mails. Dit geeft meer context en samenhang in de zoekresultaten.
+
+Organisatiebeheerders kunnen nu de landingspagina van de website opmaken met vet, cursief, opsommingen en hyperlinks. Dit maakt het eenvoudiger om heldere en aantrekkelijke teksten te publiceren.
+
+De pagina open.minvws.nl/documentatie is voorzien van het iRealisatie Sphinx theme en sluit nu beter aan op de Rijkshuisstijl.
+
+Net als de balie is ook de publieke website aangepast om VWS-specifieke elementen configureerbaar te maken. Hierdoor is de site eenvoudig aan te passen voor andere ministeries.
+
+## v1.12.0
+
+*28 mei 2025*
+
+### Balie
+
+De formele datum van een besluitbrief is nu gebaseerd op de datum waarop het besluit is genomen, in plaats van de publicatiedatum. Dit zorgt voor correctere weergave van de besluitdata op de website.
+
+Bij het uploaden van een advies zijn ‘Adviesaanvraag’ en ‘Bijlagen’ voortaan gescheiden secties. Dit zorgt voor duidelijkere ordening en presentatie van documenten binnen een publicatie.
+
+Er is gewerkt aan een nieuwe setup van de gebruiksdocumentatie. Deze is hier te zien.
+
+De knoppen in de balie zijn geüpdatet naar het nieuwe design, waardoor de interface consistenter en gebruiksvriendelijker oogt.
+
+Configuratie van landingspagina's:
+
+- Gebruikers met de rol ‘Organisatie-beheer’ hebben nu toegang tot een extra menu-item ‘Bestuursorgaan’, waarmee zij zelfstandig landingspagina’s van gekoppelde bestuursorganen kunnen beheren.
+- Bij het bewerken van teksten op de landingspagina zijn nu eenvoudige opmaakopties beschikbaar, zoals vet, cursief, opsommingen en hyperlinks. De wijzigingen zijn direct zichtbaar op de publieke site.
+- Organisaties kunnen nu hun eigen logo uploaden en vervangen via het beheerscherm, mits in .svg-formaat. Dit zorgt voor betere herkenbaarheid op de landingspagina.
+
+### Website
+
+Wanneer een bestuursorgaan geen afkorting heeft, wordt nu de volledige naam getoond in de filters. Dit voorkomt lege filteropties en verhoogt de bruikbaarheid.
+
+Bij besluiten die een volledig jaar beslaan, wordt de periode nu weergegeven als “januari t/m december [jaar]” in plaats van “Heel [jaar]”, voor meer duidelijkheid.
+
+Op zaakpagina’s is de knop “zoeken in deze documenten >” nu ook bovenin zichtbaar, direct in het grijze informatieve vak. Hierdoor is deze functie sneller vindbaar voor gebruikers.
+
+Een probleem met de weergave van informatiecategorieën bij een oneven aantal items is opgelost. De layout blijft nu correct in alle browsers.
+
+## v1.11.0
+
+*1 mei 2025*
+
+### Balie
+
+Bij het uploaden van een Woo-besluit is nu een duidelijke link toegevoegd naar documentatie over het productierapport, inclusief een downloadbare Excel-template. Dit helpt organisaties zonder Zylab om het juiste formaat te hanteren.
+
+De kolom ‘Prefix & referentie’ in het publicatieoverzicht toont lange bestandsnamen nu ingekort, met de volledige naam zichtbaar via een tooltip. Hierdoor blijft de tabel overzichtelijk zonder horizontaal scrollen.
+
+Het is nu mogelijk om meer dan 1000 documenten in één keer via een Excelbestand te koppelen aan zaaknummers zonder dat er een time-out optreedt.
+
+Toegankelijkheidsverbeteringen:
+
+- Foutmeldingen bij formulieren zijn nu duidelijker en beter leesbaar voor hulpsoftware.
+- Statusberichten worden correct gepresenteerd aan schermlezers.
+
+### Website
+
+Toegankelijkheidsverbeteringen:
+
+- Verbetering van de focusvolgorde bij toetsenbordnavigatie
+- Focus wordt niet meer bedekt door mobiel menu
+- De structuur en semantiek van de website zijn verbeterd zodat hulpsoftware onderdelen correct herkent.
+- Statusberichten worden nu correct voorgelezen door schermlezers, wat navigatie en foutdetectie verbetert.
+
+## v1.10.0
+
+*22 april 2025*
+
+### Balie
+
+Het hoofdmenu en de contentbreedte van de pagina zijn visueel op elkaar afgestemd. Het hoofdmenu is verbreed naar 1280px en de content sluit hier netjes op aan, wat zorgt voor een rustiger en consistenter uiterlijk van de balie.
+
+Op de homepage en landingspagina’s worden nu maximaal 6 items per categorie weergegeven in drie kolommen. Indien er meer
+resultaten zijn, verschijnt er een link naar de volledige lijst. Ook is de padding links en rechts in lijn gebracht met
+de rest van de content.
+
+### Website
+
+Toegankelijkheidsverbeteringen:
+
+- Interactieve componenten hebben verbeterde tekstalternatieven.
+- Content is beter navigeerbaar in twee dimensies.
+- Linkdoelen zijn duidelijker omschreven voor schermlezers.
+
+## v1.9.0
+
+*3 april 2025*
+
+### Balie
+
+Het is nu mogelijk om videobestanden te uploaden in de balie, los of in een zip-bestand. Deze worden automatisch herkend als ‘Video’ en zijn ook vindbaar via de bijbehorende filter op de website.
+Het uploadcomponent is aangepast en foutmeldingen over formaat en bestandsgrootte zijn geüpdatet.
+
+Bij het uploaden of vervangen van een productierapport worden document ID's voortaan case-insensitive gematcht. Hierdoor worden documenten met variaties in hoofdlettergebruik correct herkend.
+Indien meerdere matches ontstaan door hoofdlettervariaties, wordt het proces afgebroken met een duidelijke foutmelding per rij.
+
+Verbeterde zoekfunctie in 'Alle publicaties'
+De zoekfunctie in het overzicht ‘Alle publicaties’ is verbeterd. Je kunt nu makkelijker besluiten terugvinden, ook als je zoekt op slechts één woord in de titel of omschrijving. Dit voorkomt dat relevante publicaties gemist worden door te specifieke zoektermen.
+
+### Website
+
+Bezoekers kunnen nu zoeken op documentnummers (ID) en besluitnummers (referentienummer). Deze functionaliteit maakt het gemakkelijker om gerichte zoekopdrachten uit te voeren en sneller bij het juiste document of besluit uit te komen.
+
+Naast zoeken binnen Woo-besluiten is het nu ook mogelijk om te zoeken in documenten die als gerelateerd zijn gekoppeld aan een ander document. Dit ondersteunt met name de ontsluiting van documentenreeksen zoals geanonimiseerde chatgesprekken.
+
+Het ontwerp van de breadcrumbs is aangepast zodat lange titels netjes worden weergegeven. Op kleinere schermen worden breadcrumbs en het zoekveld nu beter getoond, waarbij het zoekveld niet langer over de navigatie heen valt.
+
+## v1.8.1
+
+*24 maart 2025*
+
+### Balie
+
+- Veilig updaten van download archieven
+- Beschikbaar maken van de WooIndex
+- Balie | Verbeteren zoekfunctie 'Alle publicaties'
+- Één FE-component voor het opgeven van document/bijlage bij een publicatie
+- PEN | Uploaden invalide bestandsformaten
+- PEN | Verwijderen X-Frame-Options HTTP header + Server header
+- PEN | Toevoegen mechanisme voor account vergrendeling
+- Uploads van >2GB passen niet in de db
+- Meerdere tab-componenten per pagina ondersteunen
+- Opruimen oude document upload flow
+- Balie | Matters niet hoofdlettergevoelig
+
+### Website
+
+- Website | Aangevinkte filteroptie altijd tonen op zoekpagina
+- PRD | Aantal besluiten voor zaaknummer komt niet overeen
+
+## v1.7.1
+
+*12 maart 2025*
+
+### Achtergrondtaken
+
+Het process voor het genereren van een download archief van een Woo-besluit heeft betere foutafhandeling, waardoor er nooit een incompleet download archief aangeboden zal worden.
+Een ingeplande publicatie zal altijd gepubliceerd worden, ook als deze de status incompleet heeft. Dit is een tijdelijke oplossing zodat publicaties met opgeschorte documenten nog steeds gepubliceerd kunnen worden.
+In een latere release zullen we hier verder op gaan, zodat een dossier met onvoldoende documenten (49/50) niet gepubliceerd zal worden.
+
+## v1.7.0
+
+*20 februari 2025*
+
+### Balie
+
+#### Vervangen van meerdere documenten tegelijkertijd
+
+Het vervangen van documenten is verbeterd. Het is vanaf nu mogelijk om meerdere documenten tegelijkertijd te vervangen. Hiervoor is het blok om documenten te uploaden altijd beschikbaar in het overzicht 'Documenten'.
+Voorheen was het enkel mogelijk om één document per keer te vervangen door vanuit het overzicht 'Documenten' een document te selecteren en te kiezen voor 'Vervang document'. Hieronder een beschrijving van wat er is gewijzigd.
+
+Vanuit het overzicht 'Alle publicaties' open je een Woo-besluit. Je scrolt naar het blok 'Documenten' en kiest voor 'Bewerken'. Onderstaand scherm verschijnt. Je ziet hier het blok om documenten te uploaden.
+
+Er zijn diverse redenen waarom je hier een of meerdere documenten upload:
+
+    Je upload een document om het huidige documenten te vervangen, omdat bijvoorbeeld de inhoud is gewijzigd.
+    Je upload een document welke niet langer ingetrokken is.
+    Je upload een document welke niet langer opgeschort is. Voordat je dit kunt doen dien je eerst het productierapport te vervangen.
+    Je upload een document welke nieuw is toegevoegd aan een besluit. Voordat je dit kunt doen dien je eerst het productierapport te vervangen.
+
+Upload een zip-bestand of een aantal losse bestanden. Wanneer de bestanden zijn geüpload, te zien aan de groene vink achter de bestandsnaam, kies je voor 'Bestanden controleren'. Deze knop is nieuw toegevoegd.
+
+Vervolgens zie je welke aanpassingen er doorgevoerd gaan worden nadat de documenten daadwerkelijk verwerkt zijn. Wanneer de getoonde wijzingen kloppen kies je voor 'Ja, verwerk documenten'. Wanneer je de acties niet uit wilt voeren kies je voor 'Annuleren'.
+
+#### Toevoeging van de informatiecategorie 'Adviezen'
+
+Adviezen kunnen nu actief openbaar worden gemaakt op open.minvws.nl. Dit omvat:
+
+- Uploaden van een advies (hoofddocument) met optionele bijlagen, inclusief adviesaanvragen.
+- Invoeren en bewerken van metadata voor de publicatie, het advies en de bijlagen.
+- Publiceren en verwijderen/vervangen van documenten in verschillende statussen.
+- De categorie 'Adviezen' is beschikbaar als filteroptie in de zoekfunctionaliteit op de website.
+
+#### Toevoeging van de informatiecategorie 'Overig'
+
+Het is nu mogelijk om informatie openbaar te maken die niet onder een van de gedefinieerde informatiecategorieën valt. Hieraan zijn de volgende functionaliteiten toegevoegd:
+
+- Uploaden van een informatiestuk met optionele bijlagen.
+- Invoeren en bewerken van metadata voor de publicatie, het informatiestuk en bijlagen.
+- Publiceren en verwijderen/vervangen van documenten in verschillende statussen.
+- De informatiecategorie 'Overig' is beschikbaar als filteroptie in de zoekfunctionaliteit op de website.
+
+#### Link naar documentatie
+
+In de footer is een link naar de gebruikersdocumentatie toegevoegd, zodat gebruikers snel naar open.minvws.nl/documentatie kunnen navigeren.
+
+#### Inzicht in ingetrokken/opgeschorte documenten
+
+Een nieuwe kolom ‘Actie vereist’ toont een icoon als documenten ingetrokken, opgeschort of nog te uploaden zijn.
+In het Woo-besluitoverzicht wordt deze status nu ook weergegeven. Daarnaast is de kolom ‘Bijzonderheden’ sorteerbaar gemaakt.
+
+#### Onterechte melding bij vervangen productierapport
+
+Wanneer er zaaknummers uit een productierapport van een reeds openbaar besluit worden verwijderd en het productierapport opnieuw wordt geüpload, verschijnt er geen melding meer dat er documenten aangepast worden naar aanleiding van de wijzigingen.
+Voorheen verscheen deze melding wel. Dit is onterecht, omdat het niet meer mogelijk is om zaaknummers te ontkoppelen van Woo-documenten via het productierapport.
+
+#### Intrekken van een bijlage
+
+Het is mogelijk om een bijlage bij een Woo-besluit in te trekken. Hier kan je gebruik van maken wanneer een bijlage bijvoorbeeld onterecht is geüpload bij een besluit.
+Anders dan bij de Woo-documenten is het niet mogelijk om na het intrekken van een bijlage een nieuwe versie van het document te uploaden.
+Hiervoor zal je opnieuw een bijlage toe moeten voegen aan het besluit. Na het intrekken is de bijlage niet meer zichtbaar en vindbaar op de website.
+Enkel de specifieke URL is nog te bereiken. Een melding op deze pagina geeft aan dat het document is ingetrokken met daarbij de reden.
+
+## v1.6.4
+
+*6 februari 2025*
+
+### Balie
+
+#### Wijzigingen in het uploaden van Woo-documenten
+
+Er zijn een aantal wijzigingen aangebracht in het uploaden van Woo-documenten. In de nieuwe situatie wordt op ieder moment in het proces van uploaden en verwerken van documenten getoond dat het systeem bezig of dat er iets fout is gegaan.
+Dit om te voorkomen dat er onduidelijkheid bestaat of het uploaden wel of niet goed gaat. Hieronder een beschrijving van wat er is gewijzigd.
+
+Upload het zip-bestand of een aantal losse bestanden zoals je gewend bent. Wanneer de bestanden zijn geüpload, te zien aan de groene vink achter de bestandsnaam, kies je voor 'Bestanden verwerken'. Deze knop is nieuw toegevoegd.
+
+Nadat je hebt gekozen voor 'Bestanden verwerken' verschijnt een melding in beeld dat het systeem bezig is met het verwerken van de geüploade bestanden en zie je een zogenaamde 'spinner' in beeld.
+Het is niet nodig om in dit scherm te blijven en het is mogelijk om te werken aan een ander besluit. De verwerking van de bestanden vindt plaats op de achtergrond.
+
+Het is niet mogelijk om op dit moment nieuwe bestanden te uploaden bij het besluit. Dit is wel weer mogelijk nadat de verwerking is afgerond.
+
+Indien alle bestanden voor dit besluit zijn geüpload en verwerkt verschijnt onderstaande melding en kan je door naar de publicatie-stap:
+
+### Website
+
+#### Informatie toegevoegd aan de inventarislijst
+
+Aan de inventarislijst, die te downloaden is vanaf de website, zijn twee kolommen toegevoegd. Indien van toepassing wordt in de ene kolom het 'Gerelateerd ID' getoond en in de andere kolom de URL waarop het document te vinden is.
+Wanneer er meerdere gerelateerde ID's zijn gekoppeld aan een document, worden er meerdere ID's en URL's getoond in de kolommen.
+
+#### Openen PDF in browser
+
+Wanneer er geklikt wordt op de preview van een document dan opent dit document weer in de browser. Voorheen werd het document onterecht gedownload.
+
+#### Capaciteit ziekenhuizen toegevoegd aan themapagina COVID-19
+
+Het onderwerp 'Capaciteit ziekenhuizen' is toegevoegd aan de themapagina COVID-19.
+
+## v1.6.3
+
+*10 december 2024*
+
+### Balie
+
+#### Uploaden van meerdere bestandsformaten
+
+Het is mogelijk om bestanden van een ander bestandsformaat dan PDF te uploaden als Woo-document. Voorheen was dit enkel mogelijk als bijlage bij een besluit. We ondersteunen PDF, Word, Excel, Powerpoint en Zip.
+Specifiek betreft dit de volgende bestandsformaten: CSV, XLS, XLSX, ODF, ODP, ODS, ODT, TXT, PPSX, PPT, PPTX, PPS, RTF, DOC, DOCX, Zip en 7z.
+
+Om een ander bestandsformaat dan PDF te uploaden is het niet nodig om aanpassingen te doen in het productierapport (publicatierapport). Ook kan het zip-bestand bestaan uit bestanden van verschillende bestandsformaten. Deze kunnen in één keer geüpload worden.
+
+Daarnaast is het mogelijk om een bestand te vervangen door een bestand van een ander bestandsformaat, bijvoorbeeld een PDF vervangen door een Excel.
+
+#### Wijziging in het vervangen van een productierapport
+
+Wanneer een Woo-besluit in concept is, is het niet meer mogelijk om een productierapport (publicatierapport) te verwijderen. Het is enkel mogelijk om het rapport te vervangen.
+Dit gaat op dezelfde manier als het vervangen van een rapport bij een Woo-besluit dat al openbaar is.
+
+#### Verbeterde melding bij het koppelen van zaaknummers aan documenten
+
+Bij het koppelen van zaaknummers aan documenten kan het voorkomen dat er in het Excel-bestand documentnummers staan die (nog) niet op het platform bekend zijn.
+Voorheen zag je enkel de foutmelding: 'Regel [x]: Documentnummer [x] bestaat niet' en was het niet duidelijk of de overige documenten wel succesvol waren gekoppeld aan zaaknummers.
+
+### Website
+
+De pictogrammen in de kolom 'Type' worden weer juist getoond.
+
+Wanneer in de balie werd gekozen voor een periode waarin 'januari 2021', 'januari 2022' of 'januari 2023' voorkwam, werd dit onjuist getoond op de website. Dit is opgelost.
+
+Er is een duidelijker onderscheid gemaakt op de website tussen Woo- en Wob-besluiten.
+Ook zijn er tekstuele wijzigingen doorgevoerd, zodat de termen 'Woo-besluit' en 'Wob-besluit' consistent gebruikt worden.
+
+## v1.6.2
+
+*12 november 2024*
+
+### Balie
+
+#### Uploaden besluitbrief aangepast
+
+Het uploaden van een besluitbrief gaat op dezelfde manier als het uploaden van een bijlage bij een besluit. Je klikt op de knop 'Besluitbrief toevoegen', je upload de besluitbrief en vult de betreffende informatie in.
+Als 'type document' wordt standaard 'Beslissing op wob-/woo-verzoek' gebruikt. Het is niet nodig om deze handmatig te kiezen zoals bij het uploaden van een bijlage.
+
+### Website
+
+#### Tekstuele aanpassingen
+
+Binnenkort gaat er meer informatie gepubliceerd worden op open.minvws.nl dan de COVID-19 gerelateerde Woo-besluiten die de Programmadirectie Openbaarheid (PDO) om dit moment publiceert.
+Hiervoor zijn er tekstuele aanpassingen doorgevoerd op een aantal algemene pagina's de website.
+
+#### Zoekresultaten sorteren op 'Publicatiedatum' en 'Relevantie'
+
+Op de website is het mogelijk om de zoekresultaten te sorteren op 'Publicatiedatum' en 'Relevantie'. Omdat de optie 'Datum besluit' straks enkel nog van toepassing is op Woo-besluiten en niet op andere publicaties, is deze optie weggehaald.
+
+#### Themapagina COVID-19
+
+De pagina waarop gezocht kon worden in alle gepubliceerde Wob-/Woo-besluiten is gewijzigd naar de nieuwe themapagina COVID-19.
+Op deze pagina zijn alle Wob-/Woo-besluiten inclusief bijbehorende documenten te vinden die zijn gekoppeld aan de onderwerpen:
+Opstart Corona, Overleg VWS, Overleg overig, RIVM, Digitale middelen, Besmettelijkheid kinderen, Scenario's en maatregelen, Medische hulpmiddelen, Capaciteit ziekenhuis, Testen, Vaccinaties en medicatie en Chats.
+
+#### Besluitbrief als apart zoekresultaat
+
+De besluitbrief wordt getoond als apart zoekresultaat op de algemene zoekpagina. Voorheen was het al mogelijk om te zoeken op de inhoud van een besluitbrief, maar werd het besluit getoond als zoekresultaat. Ook is het mogelijk om hierop te filteren.
+
+#### Preview van bijlagen
+
+Er wordt een preview (ook wel thumbnail) getoond van een bijlage bij een besluit wanneer deze het bestandsformaat PDF heeft. Dit werd al gedaan voor de documenten.
+
+Inhoud van de zaakpagina sorteren op basis van 'Datum besluit'
+De besluiten en documenten die op een zaakpagina staan worden getoond op basis van de datum van het besluit, van nieuw naar oud. Voorheen werden de documenten en besluiten niet in een logische volgorde getoond.

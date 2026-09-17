@@ -1,0 +1,306 @@
+# https://taskfile.dev
+version: '3.50.0'
+
+vars:
+  ROBOT_PARAMS: --variablefile libraries/tenants.py --outputdir results  --name 'E2E Tests' ./tests
+  DEFAULT_TENANT: minvws
+
+env:
+  VIRTUAL_ENV: ""
+
+tasks:
+  dependency:upgrade:
+    desc: Upgrade all RF dependencies
+    cmds:
+     - uv lock --upgrade
+
+  init:
+    desc: Loads E2E fixtures and create a super-admin user for minvws and minfin tenants
+    status:
+      - test -f secrets/.otp_secret_minvws
+      - test -f secrets/.otp_secret_minfin
+    cmds:
+      - cmd: mkdir -p results
+      - task: init:single
+        vars:
+          tenant: minvws
+      - task: init:single
+        vars:
+          tenant: minfin
+
+  init:single:
+    internal: true
+    vars:
+      tenant: '{{.tenant | default .DEFAULT_TENANT}}'
+    cmds:
+      - cmd: |
+          echo Tenant: {{.tenant}}
+      - task: fixtures:load:e2e
+        vars:
+          TENANT: '{{.tenant}}'
+      - cmd: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          EMAIL="email@example.org"
+          CMD="docker compose run --rm admin bin/console --no-interaction --tenant={{.tenant}}"
+
+          # Capture output safely: grep failure won't trigger exit
+          CREATE_OUTPUT="$($CMD woopie:user:create "$EMAIL" "Robot Admin" --super-admin 2>&1 || true)"
+          CREATE_OUTPUT_CLEAN="$(grep -v 'qrencode not found' <<< "$CREATE_OUTPUT" || true)"
+
+          # Extract TEMP_PASSWORD and OTP_SECRET
+          TEMP_PASSWORD="$(sed -n 's/^Password[[:space:]]*:[[:space:]]*\(.*\)$/\1/p' <<< "$CREATE_OUTPUT_CLEAN")"
+          OTP_SECRET="$(sed -n 's/^TOTP Token[[:space:]]*:[[:space:]]*\(.*\)$/\1/p' <<< "$CREATE_OUTPUT_CLEAN")"
+
+          if [[ -z "$TEMP_PASSWORD" || -z "$OTP_SECRET" ]]; then
+              echo "ERROR: Failed to parse password or OTP secret from output:"
+              echo "$CREATE_OUTPUT"
+              exit 1
+          fi
+
+          mkdir -p secrets
+          printf "%s" "$OTP_SECRET" > secrets/.otp_secret_{{.tenant}}
+          printf "%s" "$TEMP_PASSWORD" > secrets/.temp_password
+          echo "User $EMAIL created successfully, secrets saved."
+        silent: true
+      - task: disable-toolbar
+      - task: :dc
+        vars:
+          SUB_CMD: >
+            run -e ENVIRONMENT=docker -e TENANT={{.tenant}} -e HEADLESS=true --rm robot
+            /bin/bash -c "uv run robot --include 'first-login' {{.ROBOT_PARAMS}}"
+
+  local:venv:
+    desc: Create virtual environment
+    cmds:
+      - uv venv --clear
+      - uv sync
+      - uv run rfbrowser init
+
+  local:otp:
+    desc: Returns an OTP code from the secret in .otp_secret
+    cmds:
+      - uv run python -c "import pyotp; print(pyotp.TOTP(open('secrets/.otp_secret').read().strip()).now())"
+
+  local:run:
+    aliases: [run-local]
+    desc: Run Robot tests with browser on local
+    vars:
+      tenant: '{{.tenant | default .DEFAULT_TENANT}}'
+    env:
+      ENVIRONMENT: local
+      TENANT: '{{.tenant}}'
+      HEADLESS: false
+    cmds:
+      - task: :up
+      - task: init
+      - task: clear-results
+      - task: disable-toolbar
+      - cmd: uv run robot --include '{{.tag | default "single"}}' --exclude '{{.exclude | default ""}}' {{.ROBOT_PARAMS}}
+
+  local:run:api:
+    aliases: [run-api]
+    desc: Run all API Robot tests
+    vars:
+      tenant: '{{.tenant | default .DEFAULT_TENANT}}'
+    env:
+      ENVIRONMENT: local
+      TENANT: '{{.tenant}}'
+      HEADLESS: true
+    cmds:
+      - task: :up
+      - task: init
+      - task: clear-results
+      - task: disable-toolbar
+      - cmd: uv run pabot --processes 8 --artifactsinsubfolders --include api --exclude failing {{.ROBOT_PARAMS}}
+
+  local:run:mobile:
+    desc: Run Robot tests with browser on Docker
+    vars:
+      tenant: '{{.tenant | default .DEFAULT_TENANT}}'
+    env:
+      ENVIRONMENT: local
+      TENANT: '{{.tenant}}'
+      HEADLESS: false
+      DEVICE: iPhone 14
+    cmds:
+      - task: run-local
+        env:
+          tag: '{{.tag}}'
+
+  docker:otp:
+    aliases: [otp]
+    desc: Returns an OTP code from the secret in .otp_secret
+    vars:
+      tenant: '{{.tenant | default .DEFAULT_TENANT}}'
+    cmds:
+      - task: :dc
+        vars: { SUB_CMD: "run --rm robot uv run python -c 'import pyotp; print(pyotp.TOTP(open(\"secrets/.otp_secret_{{.tenant}}\").read().strip()).now())'" }
+
+  docker:run:
+    aliases: [run-docker]
+    desc: Run Robot Framework tests in headless mode inside a docker container
+    vars:
+      tenant: '{{.tenant | default .DEFAULT_TENANT}}'
+    cmds:
+      - task: :env:e2e:enable
+      - defer:
+          task: ':env:e2e:disable'
+      - task: :up
+      - task: init
+      - task: clear-results
+      - task: disable-toolbar
+      - task: :dc
+        vars:
+          SUB_CMD: >
+            run -e ENVIRONMENT=docker -e TENANT={{.tenant}} -e HEADLESS=true --rm robot
+            /bin/bash -c "uv run robot --include '{{.tag | default "single"}}' --exclude '{{.exclude | default ""}}' {{.ROBOT_PARAMS}}"
+
+  docker:run:ci:
+    aliases: [run-ci]
+    desc: Run all CI Robot tests with headless browser on Docker, parallel where possible.
+    vars:
+      tenant: '{{.tenant | default .DEFAULT_TENANT}}'
+    cmds:
+      - task: :env:e2e:enable
+      - defer:
+          task: ':env:e2e:disable'
+      - task: :up
+      - task: init
+      - task: clear-results
+      - task: disable-toolbar
+      - task: :dc
+        vars:
+          SUB_CMD: >
+            run -e ENVIRONMENT=docker -e TENANT={{.tenant}} -e HEADLESS=true -e CI=true --rm robot
+            /bin/bash -c "uv run pabot --processes 8 --artifactsinsubfolders --outputdir results --include ci --exclude init --exclude sitemap --exclude failing --ordering order.txt {{.ROBOT_PARAMS}}"
+      - task: clear-generated-testdata
+
+  docker:run:api:
+    aliases: [run-api]
+    desc: Run all API Robot tests in docker
+    vars:
+      tenant: '{{.tenant | default .DEFAULT_TENANT}}'
+    cmds:
+      - task: :up
+      - task: init
+      - task: clear-results
+      - task: disable-toolbar
+      - task: :dc
+        vars:
+          SUB_CMD: >
+            run -e ENVIRONMENT=docker -e TENANT={{.tenant}} -e HEADLESS=true --rm robot
+            /bin/bash -c "uv run pabot --processes 8 --artifactsinsubfolders --outputdir results --include api --exclude failing {{.ROBOT_PARAMS}}"
+
+  docker:shell:
+    vars:
+      tenant: '{{.tenant | default .DEFAULT_TENANT}}'
+    cmds:
+      - task: :dc
+        vars:
+          SUB_CMD: "run -e ENVIRONMENT=docker -e TENANT={{.tenant}} --rm robot /bin/bash"
+
+  test:run:
+    desc: Run Robot tests with browser on TEST
+    vars:
+      tenant: '{{.tenant | default .DEFAULT_TENANT}}'
+    cmds:
+      - task: :dc
+        vars:
+          SUB_CMD: >
+            run -e ENVIRONMENT=test -e TENANT={{.tenant}} -e HEADLESS=true --rm robot
+            /bin/bash -c "uv run robot --include '{{.tag | default "testdossiers"}}' --exclude skip-test-acc {{.ROBOT_PARAMS}}"
+
+  test:run:api:
+    desc: Run all API Robot tests on TEST
+    vars:
+      tenant: '{{.tenant | default .DEFAULT_TENANT}}'
+    cmds:
+      - task: :dc
+        vars:
+          SUB_CMD: >
+            run -e ENVIRONMENT=test -e TENANT={{.tenant}} -e HEADLESS=true --rm robot
+            /bin/bash -c "uv run pabot --processes 8 --artifactsinsubfolders --outputdir results --include api --exclude failing --exclude skip-test-acc {{.ROBOT_PARAMS}}"
+
+  acc:run:
+    desc: Run Robot tests with browser on ACC
+    vars:
+      tenant: '{{.tenant | default .DEFAULT_TENANT}}'
+    cmds:
+      - task: :dc
+        vars:
+          SUB_CMD: >
+            run -e ENVIRONMENT=acc -e TENANT={{.tenant}} -e HEADLESS=true --rm robot
+            /bin/bash -c "uv run robot --include '{{.tag | default "testdossiers"}}' --exclude skip-test-acc {{.ROBOT_PARAMS}}"
+
+  acc:run:api:
+    desc: Run all API Robot tests on ACC
+    vars:
+      tenant: '{{.tenant | default .DEFAULT_TENANT}}'
+    cmds:
+      - task: :dc
+        vars:
+          SUB_CMD: >
+            run -e ENVIRONMENT=acc -e TENANT={{.tenant}} -e HEADLESS=true --rm robot
+            /bin/bash -c "uv run pabot --processes 8 --artifactsinsubfolders --outputdir results --include api --exclude failing --exclude skip-test-acc {{.ROBOT_PARAMS}}"
+
+  prod:run:sanity:
+    desc: Run the read-only public sanity checks against Production.
+    vars:
+      tenant: '{{.tenant | default .DEFAULT_TENANT}}'
+    cmds:
+      - task: :dc
+        vars:
+          SUB_CMD: >
+            run -e ENVIRONMENT=prod -e TENANT={{.tenant}} -e HEADLESS=true --rm robot
+            /bin/bash -c "uv run robot --include sanity --exclude sanity-admin {{.ROBOT_PARAMS}}"
+
+  lint:
+    desc: Run Robocop linter
+    cmds:
+      - uv run robocop check
+
+  format:
+    desc: Run Robocop format
+    cmds:
+      - uv run robocop format
+
+  cleansheet:
+    desc: Run for Robot customized cleansheet
+    cmds:
+      - task: :dc:exec:admin
+        vars: { SUB_CMD: "bin/console --tenant=minvws woopie:dev:clean-sheet --index woopie-minvws --force {{ .CLI_ARGS }}" }
+      - task: :minio:clear-buckets
+
+  fixtures:load:e2e:
+    desc: Load the E2E fixtures
+    vars:
+      TENANT: '{{.tenant | default .DEFAULT_TENANT}}'
+    cmds:
+      - task: :dc:exec:admin
+        vars: { SUB_CMD: "bin/console --tenant={{ .TENANT }} doctrine:fixtures:load --no-interaction --append --group=e2e" }
+
+  clear-results:
+    desc: Empties the results folder, as well as creating it if it does not exist
+    internal: true
+    cmds:
+      - cmd: mkdir -p results
+      - cmd: rm -rf results/*
+
+  clear-generated-testdata:
+    desc: Empties the shared generated test data folder after a full parallel CI run
+    internal: true
+    cmds:
+      - cmd: rm -rf files/generated
+
+  disable-toolbar:
+    desc: Disable the Symfony debug toolbar in Robot Framework tests
+    dir: ../../
+    status:
+      - grep -q '^ENABLE_TOOLBAR=false' .env.dev.local
+    cmds:
+      - cmd: grep -q '^ENABLE_TOOLBAR=' .env.dev.local && sed -i '' 's/^\(ENABLE_TOOLBAR=\).*$/\1false/' .env.dev.local || echo 'ENABLE_TOOLBAR=false' >> .env.dev.local
+        platforms: [darwin]
+      - cmd: grep -q '^ENABLE_TOOLBAR=' .env.dev.local && sed -i 's/^\(ENABLE_TOOLBAR=\).*$/\1false/' .env.dev.local || echo 'ENABLE_TOOLBAR=false' >> .env.dev.local
+        platforms: [linux]

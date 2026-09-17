@@ -1,0 +1,126 @@
+{% extends 'admin/base.html.twig' %}
+
+{% import "admin/macros/facet.html.twig" as macro %}
+
+{% set page_title = 'admin.dossiers.all_dossiers' | trans %}
+
+{% block body %}
+
+<div class="bhr-container">
+    <twig:Admin:LeftAndRight>
+        <h1 class="bhr-title">{{ page_title }}</h1>
+
+        <twig:block name="right">
+            {% if matrix_has_permission('dossier.create') %}
+            <a class="bhr-btn-filled-primary" data-e2e-name="create-dossier" href="{{ path('app_admin_dossier_create') }}">{{ 'admin.dossiers.new_dossier' | trans() }}</a>
+            {% endif %}
+        </twig:block>
+    </twig:Admin:LeftAndRight>
+
+    <div class="bhr-card">
+        {% include 'admin/shared/flash-messages.html.twig' %}
+
+        {% if pagination | length > 0 or (formData is not null) %}
+            <twig:Admin:LeftAndRight class="pt-1">
+                {% include 'admin/dossier/shared/snippets/filter.html.twig' with { 'form': form } %}
+
+                <twig:block name="right">
+                    <div {{ vue_component('GenericController', {
+                        componentName: 'PublicationSearchAndGo',
+
+                        endpoint: '/balie/api/publication/search',
+                        label: 'admin.publications.search_within' | trans,
+                    }) }} data-e2e-name="dossier-search">
+                        <div class="h-[50px]"></div>
+                    </div>
+                </twig:block>
+            </twig:Admin:LeftAndRight>
+        {% endif %}
+
+        {% if formData is not null %}
+            <ul class="px-4 pb-6">
+                {% for status in formData.statuses|default([]) %}
+                    {{ macro.active_facet('admin.publications.status' | trans() ~ ': ' ~ status.value | trans, '?' ~ query_string_without_param('statuses', status.value)) }}
+                {% endfor%}
+                {% for dossierType in formData.types|default([]) %}
+                    {{ macro.active_facet('admin.publications.type' | trans() ~ ': ' ~ dossierType | trans, '?' ~ query_string_without_param('types', dossierType.value)) }}
+                {% endfor%}
+                {% for department in formData.departments|default([]) %}
+                    {{ macro.active_facet('admin.publications.department' | trans() ~ ': ' ~ department.name, '?' ~ query_string_without_param('departments', department.id)) }}
+                {% endfor%}
+            </ul>
+        {% endif %}
+
+        {% if pagination | length > 0 %}
+            <table class="bhr-table" id="resultaten" data-e2e-name="dossiers-table">
+                <caption class="sr-only">Alle dossiers. Kolomkoppen met links zijn sorteerbaar.</caption>
+                <thead>
+                    <tr>
+                        {{ knp_pagination_sortable(pagination, 'admin.publications.organisation_and_reference' | trans, ['dos.documentPrefix','dos.dossierNumber'], {}, {}, 'admin/layout/sort.html.twig') }}
+                        {{ knp_pagination_sortable(pagination, 'admin.publications.status' | trans, 'dos.status', {}, {}, 'admin/layout/sort.html.twig') }}
+                        <th scope="col">{{ "admin.dossiers.category" | trans() }}</th>
+                        {{ knp_pagination_sortable(pagination, 'global.created_at' | trans, 'dos.createdAt', {}, {}, 'admin/layout/sort.html.twig') }}
+                        {{ knp_pagination_sortable(pagination, 'global.publication_date' | trans, 'dos.publicationDate', {}, {}, 'admin/layout/sort.html.twig') }}
+                        {{ knp_pagination_sortable(pagination, 'global.description' | trans, 'dos.summary', {}, {}, 'admin/layout/sort.html.twig') }}
+                        {{ knp_pagination_sortable(pagination, 'admin.global.needs_action' | trans, 'dos.completed', {}, {}, 'admin/layout/sort.html.twig') }}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dossier in pagination %}
+                        <tr>
+                            <td>
+                                <a class="bhr-a js-bhr-clickable-row-link" href="{{ path('app_admin_dossier', {documentPrefix: dossier.documentPrefix, dossierNumber: dossier.dossierNumber}) }}">
+                                    <span class="break-all">{{ dossier.documentPrefix }} / {{ dossier.dossierNumber }}</span>
+                                </a>
+                            </td>
+                            <td>
+                                <twig:Admin:DossierStatusBadge status="{{ dossier.status }}" />
+                            </td>
+                            <td>
+                                {{ dossier.type | trans }}
+                            </td>
+                            <td>
+                                {{ dossier.createdAt|format_date('medium') }}
+                            </td>
+                            <td>
+                                {{ dossier.publicationDate  is empty ? "-" : dossier.publicationDate|format_date('medium') }}
+                            </td>
+                            <td>
+                                <span class="bhr-clamp break-all">{{ dossier.title }}</span>
+                            </td>
+                            <td>
+                                {% set notifications = get_dossier_notifications(dossier).dossierNotifications %}
+                                {% if notifications is not empty %}
+                                    <span class="inline-block">
+                                        <twig:Admin:Icon name="alert-triangle" color="stroke-bhr-yellow-800" />
+                                        <span class="relative top-px">
+                                            {% for notification in notifications %}
+                                                {% if loop.first %}
+                                                    {{ ('admin.publications.status.' ~ notification) | trans }}
+                                                {% else %}
+                                                    {{ 'global.and' | trans }} {{ ('admin.publications.status.' ~ notification) | trans | lower }}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </span>
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {{ knp_pagination_render(pagination, 'admin/layout/pagination.html.twig') }}
+        {% elseif formData is not null %}
+            <p class="text-center">
+                {{ 'admin.dossiers.no_matches_found' | trans }}
+            </p>
+        {% else %}
+            <p class="text-center">
+                {{ 'admin.dossiers.no_dossiers' | trans }}
+
+            </p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

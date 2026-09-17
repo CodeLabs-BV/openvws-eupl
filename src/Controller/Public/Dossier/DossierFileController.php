@@ -1,0 +1,85 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Controller\Public\Dossier;
+
+use Shared\Domain\Publication\Dossier\AbstractDossier;
+use Shared\Domain\Publication\Dossier\FileProvider\DossierFileProviderManager;
+use Shared\Domain\Publication\Dossier\FileProvider\DossierFileType;
+use Shared\Service\DownloadResponseHelper;
+use Shared\Service\Storage\ThumbnailStorageService;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpKernel\Attribute\Cache;
+use Symfony\Component\HttpKernel\Attribute\ValueResolver;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\Routing\Attribute\Route;
+
+use function filesize;
+use function fopen;
+use function fpassthru;
+use function intval;
+use function sprintf;
+
+class DossierFileController extends AbstractController
+{
+    public const string ROUTE_NAME_DOSSIER_FILE_DOWNLOAD = 'app_dossier_file_download';
+
+    public function __construct(
+        private readonly ThumbnailStorageService $thumbnailStorage,
+        private readonly DownloadResponseHelper $downloadHelper,
+        private readonly DossierFileProviderManager $fileProviderManager,
+    ) {
+    }
+
+    #[Cache(maxage: 600, public: true, mustRevalidate: true)]
+    #[Route('/dossier/{documentPrefix}/{dossierNumber}/file/download/{type}/{id?""}', name: self::ROUTE_NAME_DOSSIER_FILE_DOWNLOAD, methods: ['GET'])]
+    public function download(
+        #[ValueResolver('dossierWithAccessCheck')] AbstractDossier $dossier,
+        DossierFileType $type,
+        string $id,
+    ): StreamedResponse {
+        $entity = $this->fileProviderManager->getEntityForPublicUse($type, $dossier, $id);
+
+        return $this->downloadHelper->getResponseForEntityWithFileInfo($entity);
+    }
+
+    #[Cache(maxage: 600, smaxage: 600, public: true)]
+    #[Route(
+        '/dossier/{documentPrefix}/{dossierNumber}/file/thumbnail/{type}/{id}/{pageNr}/{hash}',
+        name: 'app_dossier_file_thumbnail',
+        requirements: ['pageNr' => '\d+'],
+        defaults: ['hash' => ''],
+        methods: ['GET'],
+    )]
+    public function thumbnail(
+        #[ValueResolver('dossierWithAccessCheck')] AbstractDossier $dossier,
+        DossierFileType $type,
+        string $id,
+        string $pageNr,
+    ): StreamedResponse {
+        $entity = $this->fileProviderManager->getEntityForPublicUse($type, $dossier, $id);
+
+        $fileSize = $this->thumbnailStorage->fileSize($entity, intval($pageNr));
+        $stream = $this->thumbnailStorage->retrieveResource($entity, intval($pageNr));
+        if ($stream === null) {
+            // Display default placeholder thumbnail if we haven't found a thumbnail for given document/pageNr
+            $path = sprintf('%s/%s', $this->getParameter('kernel.project_dir') . '/public', 'placeholder.png');
+            $fileSize = filesize($path);
+            $stream = fopen($path, 'rb');
+            if ($stream === false) {
+                throw new NotFoundHttpException();
+            }
+        }
+
+        $response = new StreamedResponse();
+        $response->headers->set('Content-Type', 'image/png');
+        $response->headers->set('Content-Length', (string) $fileSize);
+        $response->setCallback(static function () use ($stream) {
+            fpassthru($stream);
+        });
+
+        return $response;
+    }
+}

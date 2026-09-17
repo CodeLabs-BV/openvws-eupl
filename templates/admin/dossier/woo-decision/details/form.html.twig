@@ -1,0 +1,17 @@
+{{ form_start(form) }}
+    {{ form_errors(form) }}
+
+    {{ form_row(form.title) }}
+    {{ form_row(form.date_from) }}
+    {%  include 'admin/dossier/shared/snippets/departments-field.html.twig' with {'formField': form.departments} %}
+    {{ form_row(form.subject) }}
+    {{ form_row(form.publication_reason) }}
+
+    {%  include 'admin/dossier/shared/snippets/reference-number.html.twig' with {'form': form, 'dossier': dossier} %}
+
+    <div class="bhr-form-row">
+        <h2 class="bhr-label">{{ 'publication.dossier.documents_prefix' | trans }}</h2>
+        <p class="bhr-form-help">{{ 'publication.dossier.can_not_edit_after_creation' | trans | raw }}</p>
+        <p class="bhr-readonly-text">{{ dossier.documentPrefix }}-</p>
+    </div>
+{{ form_end(form) }}

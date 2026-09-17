@@ -1,0 +1,15 @@
+@utility woo-container {
+  @apply max-w-6xl mx-auto px-4;
+}
+
+@utility woo-container--sm {
+  @apply max-w-4xl;
+}
+
+@utility woo-container--xs {
+  @apply max-w-2xl;
+}
+
+@utility woo-no-container {
+  @apply max-w-none mx-0 px-0;
+}

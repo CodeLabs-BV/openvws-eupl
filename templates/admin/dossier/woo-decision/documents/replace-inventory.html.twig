@@ -1,0 +1,18 @@
+{% extends 'admin/base.html.twig' %}
+
+{% block body %}
+    <div class="bhr-container bhr-container--sm">
+        {% include 'admin/shared/page-title.html.twig' %}
+
+        <div class="bhr-card">
+            <div
+                {% if dataPath is not empty %}
+                    id="js-inventory-status"
+                    data-endpoint="{{ path(dataPath, { documentPrefix: dossier.documentPrefix, dossierNumber: dossier.dossierNumber }) }}"
+                    role="status"
+                {% endif %}>
+                {% include 'admin/dossier/woo-decision/documents/processrun.html.twig' with { dossier: dossier, inventoryStatus: inventoryStatus } %}
+            </div>
+        </div>
+    </div>
+{% endblock %}

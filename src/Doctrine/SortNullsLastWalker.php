@@ -1,0 +1,33 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Doctrine;
+
+use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
+use Doctrine\ORM\Query\AST\OrderByClause;
+use Doctrine\ORM\Query\SqlWalker;
+use Override;
+use RuntimeException;
+use Webmozart\Assert\Assert;
+
+use function preg_replace;
+
+class SortNullsLastWalker extends SqlWalker
+{
+    #[Override]
+    public function walkOrderByClause(OrderByClause $orderByClause): string
+    {
+        $sql = parent::walkOrderByClause($orderByClause);
+
+        $platform = $this->getConnection()->getDatabasePlatform();
+        if (! $platform instanceof PostgreSQLPlatform) {
+            throw new RuntimeException('Unsupported database platform: ' . $platform::class);
+        }
+
+        $sql = preg_replace('/([A-Z0-9_]+) (ASC|DESC)/i', '$1 $2 NULLS LAST', $sql);
+        Assert::string($sql);
+
+        return $sql;
+    }
+}
