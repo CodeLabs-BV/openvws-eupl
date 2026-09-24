@@ -67,6 +67,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, TwoFact
     #[ORM\Column(type: 'encrypted_array', nullable: true)]
     private ?array $mfaRecovery = null;
 
+    #[ORM\Column(options: ['default' => false])]
+    private bool $mfaEnabled = false;
+
     #[ORM\Column]
     private bool $enabled;
 
@@ -209,9 +212,21 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, TwoFact
         return $this;
     }
 
+    public function isMfaEnabled(): bool
+    {
+        return $this->mfaEnabled;
+    }
+
+    public function setMfaEnabled(bool $mfaEnabled): static
+    {
+        $this->mfaEnabled = $mfaEnabled;
+
+        return $this;
+    }
+
     public function isTotpAuthenticationEnabled(): bool
     {
-        return true;
+        return $this->mfaEnabled && ($this->mfaToken ?? '') !== '';
     }
 
     public function getTotpAuthenticationUsername(): string

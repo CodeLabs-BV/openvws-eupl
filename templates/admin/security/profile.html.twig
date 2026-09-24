@@ -29,6 +29,16 @@
         </div>
 
         <div class="bhr-card mt-10">
+            <h2 class="bhr-title mb-8">2-factor authenticatie</h2>
+            <p class="text-lg mb-6">2FA is voor jouw account momenteel <strong>{{ user.mfaEnabled ? 'ingeschakeld' : 'uitgeschakeld' }}</strong>.</p>
+            <form method="post" action="{{ path('app_admin_user_toggle_2fa') }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('toggle_2fa') }}">
+                <input type="hidden" name="enabled" value="{{ user.mfaEnabled ? '0' : '1' }}">
+                <button type="submit" class="bhr-btn-bordered-primary">{{ user.mfaEnabled ? '2FA uitschakelen' : '2FA inschakelen' }}</button>
+            </form>
+        </div>
+
+        <div class="bhr-card mt-10">
             <h2 class="bhr-title mb-8">{{ 'admin.account.details' | trans() }}</h2>
 
             <dl class="text-lg">

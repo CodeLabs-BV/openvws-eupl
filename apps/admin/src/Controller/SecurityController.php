@@ -47,6 +47,30 @@ class SecurityController extends AbstractController
         throw new LogicException('This method can be blank - it will be intercepted by the logout key on your firewall.');
     }
 
+    #[Route(path: '/balie/profiel/2fa', name: 'app_admin_user_toggle_2fa', methods: ['POST'])]
+    public function toggleTwoFactor(Request $request): Response
+    {
+        $user = $this->getUser();
+        Assert::isInstanceOf($user, User::class);
+
+        if (! $this->isCsrfTokenValid('toggle_2fa', (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $enable = $request->request->getBoolean('enabled');
+        if ($enable && ($user->getMfaToken() ?? '') === '') {
+            $this->addFlash('backend', ['error' => '2FA kan niet worden ingeschakeld: er is nog geen 2FA-code ingesteld. Vraag een beheerder om je 2FA te resetten.']);
+
+            return $this->redirectToRoute('app_admin_user_profile');
+        }
+
+        $user->setMfaEnabled($enable);
+        $this->doctrine->flush();
+        $this->addFlash('backend', ['success' => $enable ? '2-factor authenticatie ingeschakeld.' : '2-factor authenticatie uitgeschakeld.']);
+
+        return $this->redirectToRoute('app_admin_user_profile');
+    }
+
     #[Route(path: '/balie/profiel', name: 'app_admin_user_profile')]
     public function viewLoggedInUser(Request $request): Response
     {

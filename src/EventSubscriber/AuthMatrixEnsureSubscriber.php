@@ -54,6 +54,7 @@ readonly class AuthMatrixEnsureSubscriber
             '/balie/logout',
             '/balie/privacy',
             '/balie/profiel',
+            '/balie/profiel/2fa',
             '/balie/toegankelijkheid',
             '/balie/api',
             '/balie/upload',
