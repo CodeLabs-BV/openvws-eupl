@@ -15,7 +15,7 @@
     "dependencies": {
         "@scalar/api-reference": "^1.58.0",
         "@symfony/stimulus-bridge": "^4.0.1",
-        "@symfony/ux-vue": "file:assets/vendor/ux-vue",
+        "@symfony/ux-vue": "file:vendor/symfony/ux-vue/assets",
         "@vueuse/core": "^14.3.0",
         "date-fns": "^4.4.0",
         "markdown-it": "^15.0.0",
