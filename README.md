@@ -1,3 +1,8 @@
+<!-- FORK-NOTICE -->
+> **CodeLabs B.V. fork (openvws-eupl)** — maintained fork of [minvws/nl-rdo-woo-web](https://github.com/minvws/nl-rdo-woo-web) under EUPL-1.2.
+> Current delta vs upstream: Symfony 7.4 → 8.1 upgrade, auth-matrix subscriber ordering fix for controller attributes, API-beheer nav entry + Scalar API docs, unit-test fixes for Symfony 8.
+> Upstream tracked as `upstream` remote: `git fetch upstream`.
+
 # Woo-platform
 
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=nl-rdo-woo-web-private&metric=alert_status&token=b35ec24b06834af668d51efc85b6f181dabf4a5b)](https://sonarcloud.io/summary/new_code?id=nl-rdo-woo-web-private) [![CI](https://github.com/minvws/nl-rdo-woo-web-private/actions/workflows/ci.yml/badge.svg)](https://github.com/minvws/nl-rdo-woo-web-private/actions/workflows/ci.yml)
