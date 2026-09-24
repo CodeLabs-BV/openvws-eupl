@@ -57,6 +57,7 @@ readonly class AuthMatrixEnsureSubscriber
             '/balie/profiel/2fa',
             '/balie/toegankelijkheid',
             '/balie/api',
+            '/balie/api-docs',
             '/balie/upload',
         ];
         if (in_array($uri, $allowedRoutes)) {

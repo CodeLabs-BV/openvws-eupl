@@ -124,6 +124,7 @@
 
                             {% if matrix_has_permission('user.read') %}
                                 {{ _self.nav_item('app_admin_users', 'admin.global.label.access_control', '/^app_admin_user/', 'nav-access-control') }}
+                                {{ _self.nav_item('app_admin_api_docs', 'admin.global.label.api_management', '/^app_admin_api_docs/', 'nav-api-docs') }}
                             {% endif %}
                         </ul>
 
