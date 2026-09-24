@@ -20,12 +20,12 @@ class AuthMatrixEnsureSubscriberTest extends UnitTestCase
 {
     private AuthorizationEntryRequestStore&MockInterface $store;
     private AuthMatrixEnsureSubscriber $subscriber;
-    private Request&MockInterface $request;
+    private Request $request;
 
     protected function setUp(): void
     {
         $this->store = Mockery::mock(AuthorizationEntryRequestStore::class);
-        $this->request = Mockery::mock(Request::class);
+        $this->request = Request::create('/balie/gebruikers');
         $this->subscriber = new AuthMatrixEnsureSubscriber($this->store);
     }
 
@@ -46,7 +46,7 @@ class AuthMatrixEnsureSubscriberTest extends UnitTestCase
 
     public function testNonBalieUrlsAreNotChecked(): void
     {
-        $this->request->expects('getRequestUri')->andReturn('/contact');
+        $this->request = Request::create('/contact');
 
         $event = new ControllerArgumentsEvent(
             Mockery::mock(Kernel::class),
@@ -61,7 +61,7 @@ class AuthMatrixEnsureSubscriberTest extends UnitTestCase
 
     public function testWhitelistedAdminUrlIsNotChecked(): void
     {
-        $this->request->expects('getRequestUri')->andReturn('/balie/admin');
+        $this->request = Request::create('/balie/admin');
 
         $event = new ControllerArgumentsEvent(
             Mockery::mock(Kernel::class),
@@ -76,7 +76,7 @@ class AuthMatrixEnsureSubscriberTest extends UnitTestCase
 
     public function testBalieUrlWithoutStoredEntriesTriggersAccessDenied(): void
     {
-        $this->request->expects('getRequestUri')->andReturn('/balie/dossiers');
+        $this->request = Request::create('/balie/dossiers');
 
         $this->store->expects('getEntries')->andReturn([]);
 
@@ -95,9 +95,26 @@ class AuthMatrixEnsureSubscriberTest extends UnitTestCase
 
     public function testBalieUrlsWithStoredEntriesIsAccepted(): void
     {
-        $this->request->expects('getRequestUri')->andReturn('/balie/dossiers');
+        $this->request = Request::create('/balie/dossiers');
 
         $this->store->expects('getEntries')->andReturn([Mockery::mock(Entry::class)]);
+
+        $event = new ControllerArgumentsEvent(
+            Mockery::mock(Kernel::class),
+            static fn () => true,
+            [],
+            $this->request,
+            HttpKernelInterface::MAIN_REQUEST,
+        );
+
+        $this->subscriber->__invoke($event);
+    }
+
+    public function testApiDocsUrlIsWhitelisted(): void
+    {
+        $this->request = Request::create('/balie/api-docs');
+
+        $this->store->shouldNotReceive('getEntries');
 
         $event = new ControllerArgumentsEvent(
             Mockery::mock(Kernel::class),
