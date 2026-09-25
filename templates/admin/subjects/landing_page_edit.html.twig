@@ -13,6 +13,11 @@
         {{ form_row(form.landing_page_slug) }}
         {{ form_row(form.landing_page_title) }}
         {{ form_row(form.landing_page_description) }}
+        <button type="button" class="bhr-btn-bordered-primary mb-4" data-ai-write
+                data-ai-token="{{ csrf_token('ai_generate') }}"
+                data-ai-context="omschrijving van de landingspagina van onderwerp {{ subject.name }}">
+            {{ 'admin.ai.write' | trans }}
+        </button>
 
         {{ submit_button }}
     </div>
@@ -46,4 +51,5 @@
     </div>
 </div>
 {{ form_end(form) }}
+{% include 'admin/departments/_ai_write.html.twig' %}
 {% endblock %}

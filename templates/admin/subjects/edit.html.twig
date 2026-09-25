@@ -12,8 +12,27 @@
         </twig:block>
     </twig:Admin:LeftAndRight>
 
-    <div class="bhr-card">
-        {{ form(form) }}
+    <div class="api-ai-card">
+        {{ form_start(form) }}
+
+        {{ form_row(form.name) }}
+
+        {% if form.tooiLabel is defined %}
+            {% include 'admin/departments/_tooi_picker.html.twig' with {
+                'tooiFieldPrefix': 'subject',
+                'tooiEndpoint': '/balie/tooi/zoek-cat',
+                'tooiPlaceholder': 'bijv. jaarverslagen',
+            } %}
+            {{ form_row(form.tooiLabel) }}
+            {{ form_row(form.tooiUri) }}
+        {% endif %}
+
+        <div class="flex gap-2">
+            {{ form_widget(form.submit, { label: 'global.save' | trans }) }}
+            <a class="bhr-btn-bordered-primary" href="{{ path('app_admin_subjects') }}">{{ 'admin.ai.cancel' | trans }}</a>
+        </div>
+
+        {{ form_end(form) }}
     </div>
 </div>
 {% endblock %}

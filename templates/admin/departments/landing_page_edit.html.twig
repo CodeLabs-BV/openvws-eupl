@@ -18,6 +18,12 @@
                 isHidden="{{ false }}"
             >
                 <div class="pt-4">
+                    <p class="bhr-form-help mb-2">{{ 'admin.department.landingpage_help' | trans }}</p>
+                    <button type="button" class="bhr-btn-bordered-primary mb-4" data-ai-write
+                            data-ai-token="{{ csrf_token('ai_generate') }}"
+                            data-ai-context="titel en omschrijving van de landingspagina van bestuursorgaan {{ department.name }}">
+                        {{ 'admin.ai.write' | trans }}
+                    </button>
                     {{ form(form) }}
                 </div>
             </twig:Tab:Content>
@@ -44,4 +50,5 @@
         </twig:Admin:Tabs>
     </div>
 </div>
+{% include 'admin/departments/_ai_write.html.twig' %}
 {% endblock %}
