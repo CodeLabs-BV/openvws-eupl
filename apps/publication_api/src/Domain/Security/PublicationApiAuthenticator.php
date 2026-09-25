@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace PublicationApi\Domain\Security;
 
+use DateTimeImmutable;
+use Doctrine\ORM\EntityManagerInterface;
 use InvalidArgumentException;
 use MinVWS\AuditLogger\AuditLoggerInterface;
 use MinVWS\AuditLogger\Events\Logging\UserLoginLogEvent;
 use PublicationApi\Domain\OpenApi\ProblemDetails;
 use PublicationApi\Domain\OpenApi\ProblemDetailsFactory;
 use PublicationApi\Domain\Security\AuditLog\LoginFailedAuditLogEvent;
+use Shared\Domain\ApiKey\ApiKey;
+use Shared\Domain\ApiKey\ApiKeyRepository;
 use Shared\Service\Security\ApiUser;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -25,6 +29,10 @@ use Webmozart\Assert\Assert;
 use function explode;
 use function is_string;
 use function preg_match;
+use function str_starts_with;
+use function strlen;
+use function strtolower;
+use function substr;
 use function trim;
 
 class PublicationApiAuthenticator extends AbstractAuthenticator
@@ -32,11 +40,14 @@ class PublicationApiAuthenticator extends AbstractAuthenticator
     private const string SERVER_SSL_USERNAME_KEY = 'SSL_CLIENT_S_DN_CN';
     private const string SERVER_SSL_CLIENT_VERIFY_KEY = 'SSL_CLIENT_VERIFY';
     private const string SERVER_SSL_CLIENT_S_DN_KEY = 'SSL_CLIENT_S_DN';
+    private const string BEARER_PREFIX = 'bearer ';
 
     public function __construct(
         private readonly AuditLoggerInterface $auditLogger,
         private readonly GlobDomainValidator $globDomainValidator,
         private readonly ProblemDetailsFactory $problemDetailsFactory,
+        private readonly ApiKeyRepository $apiKeyRepository,
+        private readonly EntityManagerInterface $entityManager,
         #[Autowire(param: 'publication_api_ssl_username_whitelist')]
         private readonly string $sslUserNameWhitelist,
         #[Autowire(param: 'publication_api_ssl_organization_identifier')]
@@ -46,25 +57,16 @@ class PublicationApiAuthenticator extends AbstractAuthenticator
 
     public function supports(Request $request): bool
     {
-        return $request->server->has(self::SERVER_SSL_USERNAME_KEY);
+        return $request->server->has(self::SERVER_SSL_USERNAME_KEY) || $this->hasBearerToken($request);
     }
 
     public function authenticate(Request $request): Passport
     {
-        $this->checkVerified($request);
+        if ($request->server->has(self::SERVER_SSL_USERNAME_KEY)) {
+            return $this->authenticateWithCertificate($request);
+        }
 
-        $this->checkOrganizationIdentifier($request);
-
-        $sslUserName = $this->checkSslUsername($request);
-        $this->auditLogger->log(new UserLoginLogEvent()->withData([
-            'common_name' => $sslUserName,
-        ]));
-
-        $userBadge = new UserBadge($sslUserName, static function () use ($sslUserName): ApiUser {
-            return new ApiUser($sslUserName);
-        });
-
-        return new SelfValidatingPassport($userBadge);
+        return $this->authenticateWithApiKey($request);
     }
 
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): null
@@ -86,6 +88,58 @@ class PublicationApiAuthenticator extends AbstractAuthenticator
             $problemDetails->status,
             ['Content-Type' => 'application/problem+json'],
         );
+    }
+
+    private function hasBearerToken(Request $request): bool
+    {
+        $authorization = $request->headers->get('Authorization');
+
+        return is_string($authorization) && str_starts_with(strtolower($authorization), self::BEARER_PREFIX);
+    }
+
+    private function authenticateWithApiKey(Request $request): Passport
+    {
+        $authorization = (string) $request->headers->get('Authorization');
+        $plainToken = trim(substr($authorization, strlen(self::BEARER_PREFIX)));
+        if ($plainToken === '') {
+            $this->auditLogger->log(new LoginFailedAuditLogEvent('invalid_api_key'));
+
+            throw new AuthenticationException('Missing API key');
+        }
+
+        $apiKey = $this->apiKeyRepository->findOneByHash(ApiKey::hashToken($plainToken));
+        if ($apiKey === null || ! $apiKey->isUsable(new DateTimeImmutable())) {
+            $this->auditLogger->log(new LoginFailedAuditLogEvent('invalid_api_key'));
+
+            throw new AuthenticationException('Invalid API key');
+        }
+
+        $apiKey->markUsed(new DateTimeImmutable());
+        $this->entityManager->flush();
+
+        $userBadge = new UserBadge($apiKey->getName(), static function () use ($apiKey): ApiUser {
+            return new ApiUser($apiKey->getName());
+        });
+
+        return new SelfValidatingPassport($userBadge);
+    }
+
+    private function authenticateWithCertificate(Request $request): Passport
+    {
+        $this->checkVerified($request);
+
+        $this->checkOrganizationIdentifier($request);
+
+        $sslUserName = $this->checkSslUsername($request);
+        $this->auditLogger->log(new UserLoginLogEvent()->withData([
+            'common_name' => $sslUserName,
+        ]));
+
+        $userBadge = new UserBadge($sslUserName, static function () use ($sslUserName): ApiUser {
+            return new ApiUser($sslUserName);
+        });
+
+        return new SelfValidatingPassport($userBadge);
     }
 
     private function extractOrganizationIdentifier(string $dn): ?string
