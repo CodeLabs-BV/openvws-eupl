@@ -25,6 +25,7 @@
         {% block inline_style %}{% endblock %}
 
         {% include "shared/piwik-script.html.twig" %}
+        <script data-host="https://analytics.code-labs.nl" src="https://analytics.code-labs.nl/js/script.js" id="ZwSg9rf6GA" nonce="{{ csp_nonce() }}" async defer></script>
     </head>
 
     <body class="antialiased bg-bhr-gray-100 text-bhr-gray-900 flex min-h-screen flex-col text-base">
@@ -124,7 +125,7 @@
 
                             {% if matrix_has_permission('user.read') %}
                                 {{ _self.nav_item('app_admin_users', 'admin.global.label.access_control', '/^app_admin_user/', 'nav-access-control') }}
-                                {{ _self.nav_item('app_admin_api_docs', 'admin.global.label.api_management', '/^app_admin_api_docs/', 'nav-api-docs') }}
+                                {{ _self.nav_item('app_admin_api_management', 'admin.global.label.api_management', '/^app_admin_api_/', 'nav-api-docs') }}
                             {% endif %}
                         </ul>
 

@@ -26,6 +26,7 @@ class SecurityHeaderSubscriber
     private const string CSP_SELF = "'self'";
     private const string CSP_DATA = 'data:';
     private const string CSP_STATS = 'https://statistiek.rijksoverheid.nl';
+    private const string CSP_PHPANALYTICS = 'https://analytics.code-labs.nl';
     private const string CSP_VITE_WS = 'ws://localhost:8010';
 
     /** @var list<string> */
@@ -97,8 +98,8 @@ class SecurityHeaderSubscriber
             'frame-ancestors' => [self::CSP_SELF],
             'form-action' => [self::CSP_SELF],
             'base-uri' => [self::CSP_SELF],
-            'connect-src' => $this->extendCspsForDevEnv([self::CSP_SELF, self::CSP_STATS], [...self::DEV_CSPS, self::CSP_VITE_WS]),
-            'script-src' => $this->extendCspsForDevEnv([self::CSP_SELF, self::CSP_STATS, "'nonce-" . $nonce . "'"]),
+            'connect-src' => $this->extendCspsForDevEnv([self::CSP_SELF, self::CSP_STATS, self::CSP_PHPANALYTICS], [...self::DEV_CSPS, self::CSP_VITE_WS]),
+            'script-src' => $this->extendCspsForDevEnv([self::CSP_SELF, self::CSP_STATS, self::CSP_PHPANALYTICS, "'nonce-" . $nonce . "'"]),
             'style-src' => $this->extendCspsForDevEnv([self::CSP_SELF, "'nonce-" . $nonce . "'"]),
             'img-src' => $this->getImageSrcDirective(),
             'font-src' => $this->extendCspsForDevEnv([self::CSP_SELF]),

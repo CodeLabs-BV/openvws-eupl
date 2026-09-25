@@ -24,6 +24,7 @@
         {{ vite_entry_script_tags('public', { attr: { defer: false } }) }}
 
         {% include "shared/piwik-script.html.twig" %}
+        <script data-host="https://analytics.code-labs.nl" src="https://analytics.code-labs.nl/js/script.js" id="ZwSg9rf6GA" nonce="{{ csp_nonce() }}" async defer></script>
     </head>
 
     <!-- App versie: {{ app_version().version }} (Git referentie: {{ app_version().git_ref }}) -->
