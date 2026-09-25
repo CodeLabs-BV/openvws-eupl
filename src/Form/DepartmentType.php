@@ -58,6 +58,17 @@ class DepartmentType extends AbstractType
                     'data-is-markdown' => 'true',
                 ],
             ])
+            ->add('tooiLabel', TextType::class, [
+                'label' => 'admin.subject.tooi_label',
+                'required' => false,
+                'help' => 'admin.subject.tooi_help',
+                'empty_data' => '',
+            ])
+            ->add('tooiUri', TextType::class, [
+                'label' => 'admin.subject.tooi_uri',
+                'required' => false,
+                'empty_data' => '',
+            ])
             ->add('submit', SubmitType::class, [
                 'label' => 'global.save',
             ]);

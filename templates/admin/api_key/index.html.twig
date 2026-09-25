@@ -306,14 +306,22 @@
                     <h2 class="bhr-h2">{{ 'admin.tooi.title' | trans }}</h2>
                     <p class="bhr-form-help mb-4">{{ 'admin.tooi.help' | trans }}</p>
 
-                    <form method="get" action="{{ path('app_admin_api_management') }}" class="mb-6 max-w-md" data-e2e-name="tooi-search">
+                    <form method="get" action="{{ path('app_admin_api_management') }}" class="mb-6 max-w-xl" data-e2e-name="tooi-search">
+                        <div class="bhr-form-group">
+                            <label class="bhr-label" for="tooi_type">{{ 'admin.tooi.type_label' | trans }}</label>
+                            <select class="bhr-input" id="tooi_type" name="tooi_type">
+                                <option value="categorieen" {% if tooiType != 'organisaties' %}selected{% endif %}>{{ 'admin.tooi.type_categories' | trans }}</option>
+                                <option value="organisaties" {% if tooiType == 'organisaties' %}selected{% endif %}>{{ 'admin.tooi.type_organisations' | trans }}</option>
+                            </select>
+                        </div>
                         <div class="flex gap-2 items-end">
                             <div class="bhr-form-group grow">
                                 <label class="bhr-label" for="tooi_q">{{ 'admin.tooi.search_label' | trans }}</label>
-                                <input class="bhr-input" id="tooi_q" name="tooi_q" type="text" value="{{ tooiQuery }}" placeholder="bijv. jaarverslagen">
+                                <input class="bhr-input" id="tooi_q" name="tooi_q" type="text" value="{{ tooiQuery }}" placeholder="{{ tooiType == 'organisaties' ? 'bijv. gemeente Utrecht' : 'bijv. jaarverslagen' }}">
                             </div>
                             <button type="submit" class="bhr-btn-filled-primary">{{ 'admin.tooi.search_button' | trans }}</button>
                         </div>
+                        <p class="bhr-form-help">{{ 'admin.tooi.source_note' | trans }}</p>
                     </form>
 
                     {% if tooiQuery is not empty %}

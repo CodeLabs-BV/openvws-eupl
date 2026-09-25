@@ -228,4 +228,33 @@ class Department implements EntityWithFileInfo
     {
         $this->responsibilityContent = $responsibilityContent;
     }
-}
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $tooiUri = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $tooiLabel = null;
+
+    public function getTooiUri(): ?string
+    {
+        return $this->tooiUri;
+    }
+
+    public function setTooiUri(?string $tooiUri): self
+    {
+        $this->tooiUri = $tooiUri;
+
+        return $this;
+    }
+
+    public function getTooiLabel(): ?string
+    {
+        return $this->tooiLabel;
+    }
+
+    public function setTooiLabel(?string $tooiLabel): self
+    {
+        $this->tooiLabel = $tooiLabel;
+
+        return $this;
+    }}

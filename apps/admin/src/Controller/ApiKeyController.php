@@ -49,7 +49,10 @@ class ApiKeyController extends AbstractController
             'availableModels' => $this->aiAssistant->getAvailableModels(),
             'usage' => $this->aiAssistant->getUsage(),
             'tooiQuery' => (string) $request->query->get('tooi_q', ''),
-            'tooiResults' => $this->tooiService->search((string) $request->query->get('tooi_q', '')),
+            'tooiType' => (string) $request->query->get('tooi_type', 'categorieen'),
+            'tooiResults' => (string) $request->query->get('tooi_type', 'categorieen') === 'organisaties'
+                ? $this->tooiService->searchOrganisations((string) $request->query->get('tooi_q', ''))
+                : $this->tooiService->search((string) $request->query->get('tooi_q', '')),
         ]);
     }
 
