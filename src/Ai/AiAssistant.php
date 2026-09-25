@@ -86,14 +86,25 @@ final readonly class AiAssistant
     /**
      * Aggregated spend data from LiteLLM for the last $days days.
      *
-     * @return array{totalTokens:int,totalSpend:float,budget:?float,logs:list<array<string,mixed>>}
+     * @return array{
+     *   totalTokens: int,
+     *   totalSpend: float,
+     *   requests: int,
+     *   budget: ?float,
+     *   byModel: list<array{model:string,requests:int,promptTokens:int,completionTokens:int,totalTokens:int,spend:float}>,
+     *   byDay: list<array{date:string,totalTokens:int,spend:float}>,
+     *   logs: list<array<string,mixed>>
+     * }
      */
     public function getUsage(int $days = 7): array
     {
         $usage = [
             'totalTokens' => 0,
             'totalSpend' => 0.0,
+            'requests' => 0,
             'budget' => null,
+            'byModel' => [],
+            'byDay' => [],
             'logs' => [],
         ];
 
@@ -111,42 +122,84 @@ final readonly class AiAssistant
             // budget lookup is best effort
         }
 
-        $to = new \DateTimeImmutable('now');
-        $from = $to->modify("-{$days} days");
+        $period = new \DatePeriod(
+            (new \DateTimeImmutable('now'))->modify('- ' . ($days - 1) . ' days')->setTime(0, 0),
+            new \DateInterval('P1D'),
+            (new \DateTimeImmutable('now'))->modify('+1 day')->setTime(0, 0),
+        );
+        foreach ($period as $day) {
+            $usage['byDay'][$day->format('Y-m-d')] = ['date' => $day->format('Y-m-d'), 'totalTokens' => 0, 'spend' => 0.0];
+        }
 
         try {
             $response = $this->client()->request('GET', $this->litellmHostUrl . '/spend/logs', [
                 'headers' => ['Authorization' => 'Bearer ' . $this->litellmAdminKey],
                 'query' => [
-                    'start_date' => $from->format('Y-m-d'),
-                    'end_date' => $to->format('Y-m-d'),
-                    'page_size' => 100,
+                    'start_date' => (new \DateTimeImmutable('now'))->modify('- ' . ($days - 1) . ' days')->format('Y-m-d'),
+                    'end_date' => (new \DateTimeImmutable('now'))->format('Y-m-d'),
+                    'page_size' => 200,
                 ],
                 'timeout' => 5,
             ]);
 
             $data = $response->toArray(false);
             $rows = $data['data'] ?? $data;
+
+            /** @var array<string,array{model:string,requests:int,promptTokens:int,completionTokens:int,totalTokens:int,spend:float}> $byModel */
+            $byModel = [];
+
             foreach ($rows as $row) {
                 if (! \is_array($row)) {
                     continue;
                 }
 
-                $tokens = (int) ($row['total_tokens'] ?? 0);
+                $model = (string) ($row['model'] ?? '');
+                $promptTokens = (int) ($row['prompt_tokens'] ?? 0);
+                $completionTokens = (int) ($row['completion_tokens'] ?? 0);
+                $tokens = (int) ($row['total_tokens'] ?? ($promptTokens + $completionTokens));
                 $spend = (float) ($row['spend'] ?? 0.0);
+                $status = (string) ($row['status'] ?? '');
+
                 $usage['totalTokens'] += $tokens;
                 $usage['totalSpend'] += $spend;
+                $usage['requests'] += 1;
                 $usage['logs'][] = [
-                    'model' => (string) ($row['model'] ?? ''),
+                    'model' => $model,
                     'tokens' => $tokens,
                     'spend' => $spend,
-                    'status' => (string) ($row['status'] ?? ''),
+                    'status' => $status,
                     'at' => (string) ($row['startTime'] ?? ''),
                 ];
+
+                $byModel[$model] ??= [
+                    'model' => $model,
+                    'requests' => 0,
+                    'promptTokens' => 0,
+                    'completionTokens' => 0,
+                    'totalTokens' => 0,
+                    'spend' => 0.0,
+                ];
+                $byModel[$model]['requests'] += 1;
+                $byModel[$model]['promptTokens'] += $promptTokens;
+                $byModel[$model]['completionTokens'] += $completionTokens;
+                $byModel[$model]['totalTokens'] += $tokens;
+                $byModel[$model]['spend'] += $spend;
+
+                $day = substr((string) ($row['startTime'] ?? ''), 0, 10);
+                if ($day !== '' && isset($usage['byDay'][$day])) {
+                    $usage['byDay'][$day]['totalTokens'] += $tokens;
+                    $usage['byDay'][$day]['spend'] += $spend;
+                }
             }
+
+            // Sort by spend descending, then tokens
+            uasort($byModel, static fn (array $a, array $b): int => $b['spend'] <=> $a['spend'] ?: $b['totalTokens'] <=> $a['totalTokens']);
+            $usage['byModel'] = array_values($byModel);
         } catch (\Throwable) {
             // spend logs are best effort
         }
+
+        $usage['byDay'] = array_values($usage['byDay']);
 
         return $usage;
     }

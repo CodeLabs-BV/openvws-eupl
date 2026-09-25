@@ -185,16 +185,29 @@
                 </div>
             </twig:Tab:Content>
 
-            {# --- Tab 3: Verbruik --- #}
+            {# --- Tab 3: Verbruik (OpenRouter-stijl) --- #}
             <twig:Tab:Content tabNumber="3" tabsName="{{ tabsName }}" isHidden="true">
                 <div class="api-ai-card">
-                    <h2 class="bhr-h2">{{ 'admin.ai.usage_title' | trans }}</h2>
-                    <p class="bhr-form-help mb-4">{{ 'admin.ai.usage_help' | trans }}</p>
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                        <div>
+                            <h2 class="bhr-h2 mb-0">{{ 'admin.ai.usage_title' | trans }}</h2>
+                            <p class="bhr-form-help mb-0">{{ 'admin.ai.usage_help' | trans }}</p>
+                        </div>
+                        {% if usage.budget is not null %}
+                            <twig:Admin:Alert type="info">
+                                {{ 'admin.ai.usage_budget_left' | trans({'left': (usage.budget - usage.totalSpend) | number_format(2, ',', '.')}) }}
+                            </twig:Admin:Alert>
+                        {% endif %}
+                    </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                         <div class="api-ai-stat-card">
                             <p class="bhr-label">{{ 'admin.ai.usage_tokens' | trans }}</p>
                             <p class="bhr-h2">{{ usage.totalTokens | number_format(0, ',', '.') }}</p>
+                        </div>
+                        <div class="api-ai-stat-card">
+                            <p class="bhr-label">{{ 'admin.ai.usage_requests' | trans }}</p>
+                            <p class="bhr-h2">{{ usage.requests | number_format(0, ',', '.') }}</p>
                         </div>
                         <div class="api-ai-stat-card">
                             <p class="bhr-label">{{ 'admin.ai.usage_spend' | trans }}</p>
@@ -206,34 +219,87 @@
                         </div>
                     </div>
 
-                    {% if usage.logs | length > 0 %}
-                        <table class="bhr-table" data-e2e-name="ai-usage-table">
-                            <thead>
-                                <tr>
-                                    <th>{{ 'admin.ai.usage_model' | trans }}</th>
-                                    <th>{{ 'admin.ai.usage_tokens' | trans }}</th>
-                                    <th>{{ 'admin.ai.usage_spend' | trans }}</th>
-                                    <th>{{ 'admin.ai.usage_status' | trans }}</th>
-                                    <th>{{ 'admin.ai.usage_at' | trans }}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for log in usage.logs | slice(0, 25) %}
-                                    <tr>
-                                        <td>{{ log.model }}</td>
-                                        <td>{{ log.tokens | number_format(0, ',', '.') }}</td>
-                                        <td>€ {{ log.spend | number_format(4, ',', '.') }}</td>
-                                        <td>{{ log.status }}</td>
-                                        <td>{{ log.at }}</td>
-                                    </tr>
+                    {% set tokenValues = usage.byDay | map(d => d.totalTokens) %}
+                    {% set maxTokens = max(tokenValues) > 0 ? max(tokenValues) : 1 %}
+                    <div class="mb-6">
+                        <h3 class="bhr-h2">{{ 'admin.ai.usage_week' | trans }}</h3>
+                        <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <svg viewBox="0 0 700 140" role="img" aria-label="{{ 'admin.ai.usage_week_chart' | trans }}" class="w-full h-auto">
+                                {% for day in usage.byDay %}
+                                    {% set barH = (day.totalTokens / maxTokens * 100) | round %}
+                                    {% if barH < 2 %}{% set barH = 2 %}{% endif %}
+                                    {% set x = loop.index0 * 92 + 28 %}
+                                    {% set y = 118 - barH %}
+                                    <rect x="{{ x }}" y="{{ y }}" width="48" height="{{ barH }}" rx="4" fill="#1d4ed8" />
+                                    <text x="{{ x + 24 }}" y="132" text-anchor="middle" font-size="10" fill="#374151">{{ day.date | date('D') }}</text>
+                                    <text x="{{ x + 24 }}" y="{{ y - 4 }}" text-anchor="middle" font-size="9" fill="#6b7280">{{ day.totalTokens }}</text>
                                 {% endfor %}
-                            </tbody>
-                        </table>
-                    {% else %}
-                        <p>{{ 'admin.ai.usage_none' | trans }}</p>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <h3 class="bhr-h2">{{ 'admin.ai.usage_by_model' | trans }}</h3>
+                        {% if usage.byModel | length > 0 %}
+                            <table class="bhr-table" data-e2e-name="ai-usage-by-model">
+                                <thead>
+                                    <tr>
+                                        <th>{{ 'admin.ai.usage_model' | trans }}</th>
+                                        <th class="text-right">{{ 'admin.ai.usage_requests' | trans }}</th>
+                                        <th class="text-right">{{ 'admin.ai.usage_prompt' | trans }}</th>
+                                        <th class="text-right">{{ 'admin.ai.usage_completion' | trans }}</th>
+                                        <th class="text-right">{{ 'admin.ai.usage_tokens' | trans }}</th>
+                                        <th class="text-right">{{ 'admin.ai.usage_spend' | trans }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in usage.byModel %}
+                                        <tr>
+                                            <td><code>{{ row.model }}</code></td>
+                                            <td class="text-right">{{ row.requests | number_format(0, ',', '.') }}</td>
+                                            <td class="text-right">{{ row.promptTokens | number_format(0, ',', '.') }}</td>
+                                            <td class="text-right">{{ row.completionTokens | number_format(0, ',', '.') }}</td>
+                                            <td class="text-right"><strong>{{ row.totalTokens | number_format(0, ',', '.') }}</strong></td>
+                                            <td class="text-right">€ {{ row.spend | number_format(4, ',', '.') }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <p>{{ 'admin.ai.usage_none' | trans }}</p>
+                        {% endif %}
+                    </div>
+
+                    {% if usage.logs | length > 0 %}
+                        <div>
+                            <h3 class="bhr-h2">{{ 'admin.ai.usage_recent' | trans }}</h3>
+                            <table class="bhr-table" data-e2e-name="ai-usage-table">
+                                <thead>
+                                    <tr>
+                                        <th>{{ 'admin.ai.usage_model' | trans }}</th>
+                                        <th class="text-right">{{ 'admin.ai.usage_tokens' | trans }}</th>
+                                        <th class="text-right">{{ 'admin.ai.usage_spend' | trans }}</th>
+                                        <th>{{ 'admin.ai.usage_status' | trans }}</th>
+                                        <th>{{ 'admin.ai.usage_at' | trans }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in usage.logs | slice(0, 25) %}
+                                        <tr>
+                                            <td><code>{{ log.model }}</code></td>
+                                            <td class="text-right">{{ log.tokens | number_format(0, ',', '.') }}</td>
+                                            <td class="text-right">€ {{ log.spend | number_format(4, ',', '.') }}</td>
+                                            <td>{{ log.status }}</td>
+                                            <td>{{ log.at }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
                     {% endif %}
                 </div>
             </twig:Tab:Content>
+
         </twig:Admin:Tabs>
     </div>
 {% endblock %}
