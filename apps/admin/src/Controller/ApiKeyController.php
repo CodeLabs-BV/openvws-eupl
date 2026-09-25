@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use RuntimeException;
 use Shared\Ai\AiAssistant;
+use Shared\Tooi\TooiService;
 use Shared\Domain\ApiKey\ApiKey;
 use Shared\Domain\ApiKey\ApiKeyRepository;
 use Shared\Service\Security\Authorization\AuthorizationMatrix;
@@ -28,11 +29,12 @@ class ApiKeyController extends AbstractController
         private readonly EntityManagerInterface $entityManager,
         private readonly RequestStack $requestStack,
         private readonly AiAssistant $aiAssistant,
+        private readonly TooiService $tooiService,
     ) {
     }
 
     #[Route('/balie/api-beheer', name: 'app_admin_api_management', methods: ['GET'])]
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $organisation = $this->authorizationMatrix->getActiveOrganisation();
         Assert::notNull($organisation, 'No active organisation available.');
@@ -46,6 +48,8 @@ class ApiKeyController extends AbstractController
             'activeModel' => $this->aiAssistant->getActiveModel(),
             'availableModels' => $this->aiAssistant->getAvailableModels(),
             'usage' => $this->aiAssistant->getUsage(),
+            'tooiQuery' => (string) $request->query->get('tooi_q', ''),
+            'tooiResults' => $this->tooiService->search((string) $request->query->get('tooi_q', '')),
         ]);
     }
 

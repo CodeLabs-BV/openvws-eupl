@@ -58,7 +58,7 @@
             </twig:block>
         </twig:Admin:LeftAndRight>
 
-        {% set tabButtonTitles = ['admin.ai.section_tokens' | trans, 'admin.ai.section_model' | trans, 'admin.ai.section_usage' | trans] %}
+        {% set tabButtonTitles = ['admin.ai.section_tokens' | trans, 'admin.ai.section_model' | trans, 'admin.ai.section_usage' | trans, 'admin.ai.section_tooi' | trans] %}
         {% set tabsName = 'api-ai' %}
 
         <twig:Admin:Tabs
@@ -296,6 +296,55 @@
                                 </tbody>
                             </table>
                         </div>
+                    {% endif %}
+                </div>
+            </twig:Tab:Content>
+
+            {# --- Tab 4: TOOI --- #}
+            <twig:Tab:Content tabNumber="4" tabsName="{{ tabsName }}" isHidden="true">
+                <div class="api-ai-card">
+                    <h2 class="bhr-h2">{{ 'admin.tooi.title' | trans }}</h2>
+                    <p class="bhr-form-help mb-4">{{ 'admin.tooi.help' | trans }}</p>
+
+                    <form method="get" action="{{ path('app_admin_api_management') }}" class="mb-6 max-w-md" data-e2e-name="tooi-search">
+                        <div class="flex gap-2 items-end">
+                            <div class="bhr-form-group grow">
+                                <label class="bhr-label" for="tooi_q">{{ 'admin.tooi.search_label' | trans }}</label>
+                                <input class="bhr-input" id="tooi_q" name="tooi_q" type="text" value="{{ tooiQuery }}" placeholder="bijv. jaarverslagen">
+                            </div>
+                            <button type="submit" class="bhr-btn-filled-primary">{{ 'admin.tooi.search_button' | trans }}</button>
+                        </div>
+                    </form>
+
+                    {% if tooiQuery is not empty %}
+                        <p class="bhr-form-help mb-2">{{ 'admin.tooi.results' | trans }} <strong>{{ tooiResults | length }}</strong></p>
+                    {% endif %}
+
+                    {% if tooiResults | length > 0 %}
+                        <table class="bhr-table" data-e2e-name="tooi-results">
+                            <thead>
+                                <tr>
+                                    <th>{{ 'admin.subject.tooi_label' | trans }}</th>
+                                    <th>{{ 'admin.subject.tooi_uri' | trans }}</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in tooiResults %}
+                                    <tr>
+                                        <td>{{ item.label }}</td>
+                                        <td><code class="break-all">{{ item.uri }}</code></td>
+                                        <td class="text-right">
+                                            <twig:Admin:CopyToClipboardLayout copy="{{ item.uri }}" />
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        {% if tooiQuery is not empty %}
+                            <p>{{ 'admin.tooi.none' | trans }}</p>
+                        {% endif %}
                     {% endif %}
                 </div>
             </twig:Tab:Content>

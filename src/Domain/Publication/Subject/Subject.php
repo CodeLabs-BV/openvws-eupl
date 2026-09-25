@@ -67,6 +67,12 @@ class Subject implements HasId
     #[Assert\Valid]
     private ?SubjectContentTree $landingPageContentTree = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $tooiUri = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $tooiLabel = null;
+
     #[ORM\Column(type: Types::BOOLEAN, options: ['default' => false])]
     private bool $hasVisibleLandingPageContentTree = false;
 
@@ -222,6 +228,30 @@ class Subject implements HasId
     public function setHasVisibleLandingPageContentTree(bool $hasVisibleLandingPageContentTree): self
     {
         $this->hasVisibleLandingPageContentTree = $hasVisibleLandingPageContentTree;
+
+        return $this;
+    }
+
+    public function getTooiUri(): ?string
+    {
+        return $this->tooiUri;
+    }
+
+    public function setTooiUri(?string $tooiUri): self
+    {
+        $this->tooiUri = $tooiUri;
+
+        return $this;
+    }
+
+    public function getTooiLabel(): ?string
+    {
+        return $this->tooiLabel;
+    }
+
+    public function setTooiLabel(?string $tooiLabel): self
+    {
+        $this->tooiLabel = $tooiLabel;
 
         return $this;
     }
