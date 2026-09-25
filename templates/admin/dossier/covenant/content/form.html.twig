@@ -20,6 +20,11 @@
     </div>
 
     {{ form_row(form.summary) }}
+    <button type="button" class="bhr-btn-bordered-primary mb-4" data-ai-write
+            data-ai-token="{{ csrf_token('ai_generate') }}"
+            data-ai-context="samenvatting van een Woo-dossier">
+        {{ 'admin.ai.write_summary' | trans }}
+    </button>
 
     <twig:Admin:Publication:ManageNoticeNotPublic
         canDelete="{{ hasNoticeNotPublic }}"

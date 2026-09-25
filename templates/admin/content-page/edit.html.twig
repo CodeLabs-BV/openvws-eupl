@@ -8,8 +8,14 @@
 
     <div class="bhr-card">
         <div class="pt-4">
+            <button type="button" class="bhr-btn-bordered-primary mb-4" data-ai-write
+                    data-ai-token="{{ csrf_token('ai_generate') }}"
+                    data-ai-context="tekst voor de contentpagina {{ page.slug }}">
+                {{ 'admin.ai.write' | trans }}
+            </button>
             {{ form(form) }}
         </div>
     </div>
 </div>
+{% include 'admin/departments/_ai_write.html.twig' %}
 {% endblock %}
