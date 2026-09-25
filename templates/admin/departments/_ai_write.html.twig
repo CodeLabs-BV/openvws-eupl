@@ -1,0 +1,38 @@
+<script nonce="{{ csp_nonce() }}">
+    document.addEventListener('DOMContentLoaded', function () {
+        var lastTextarea = null;
+        document.addEventListener('focusin', function (e) {
+            if (e.target && e.target.tagName === 'TEXTAREA') {
+                lastTextarea = e.target;
+            }
+        });
+        document.querySelectorAll('[data-ai-write]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (!lastTextarea) {
+                    alert('Klik eerst in het tekstveld dat je wilt laten schrijven.');
+                    return;
+                }
+                var token = btn.getAttribute('data-ai-token') || '';
+                var context = btn.getAttribute('data-ai-context') || '';
+                var formData = new FormData();
+                formData.append('_token', token);
+                formData.append('context', context);
+                formData.append('current', lastTextarea.value || '');
+                btn.disabled = true;
+                var original = btn.textContent;
+                btn.textContent = 'Schrijven…';
+                fetch('/balie/ai/generate', { method: 'POST', body: formData })
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        if (d.text) lastTextarea.value = d.text;
+                        if (d.error) alert('AI niet beschikbaar: ' + d.error);
+                    })
+                    .catch(function () { alert('AI niet beschikbaar'); })
+                    .finally(function () {
+                        btn.disabled = false;
+                        btn.textContent = original;
+                    });
+            });
+        });
+    });
+</script>

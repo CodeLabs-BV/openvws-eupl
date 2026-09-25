@@ -14,8 +14,42 @@
         </twig:block>
     </twig:Admin:LeftAndRight>
 
-    <div class="bhr-card">
-        {{ form(form) }}
+    <div class="api-ai-card">
+        {{ form_start(form) }}
+
+        {{ form_row(form.name) }}
+        {{ form_row(form.shortTag) }}
+        {{ form_row(form.slug) }}
+
+        {% if form.tooiLabel is defined %}
+            {% include 'admin/departments/_tooi_picker.html.twig' with {
+                'tooiFieldPrefix': 'department',
+                'tooiPlaceholder': 'bijv. gemeente Utrecht',
+            } %}
+            {{ form_row(form.tooiLabel) }}
+            {{ form_row(form.tooiUri) }}
+        {% endif %}
+
+        {{ form_row(form.public) }}
+        {{ form_row(form.feedback_content) }}
+
+        {% if form.responsibility_content is defined %}
+            <button type="button" class="bhr-btn-bordered-primary mb-4" data-ai-write
+                    data-ai-token="{{ csrf_token('ai_generate') }}"
+                    data-ai-context="verantwoordelijkheid-tekst over het bestuursorgaan {{ department.name }}">
+                {{ 'admin.ai.write' | trans }}
+            </button>
+            {{ form_row(form.responsibility_content) }}
+        {% endif %}
+
+        <div class="flex gap-2">
+            {{ form_widget(form.submit, { label: 'global.save' | trans }) }}
+            <a class="bhr-btn-bordered-primary" href="{{ path('app_admin_departments') }}">{{ 'admin.ai.cancel' | trans }}</a>
+        </div>
+
+        {{ form_end(form) }}
     </div>
 </div>
+
+{% include 'admin/departments/_ai_write.html.twig' %}
 {% endblock %}

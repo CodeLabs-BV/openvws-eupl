@@ -1,0 +1,50 @@
+{% set tooiFieldPrefix = tooiFieldPrefix | default('department') %}
+
+<div class="bhr-form-group" data-tooi-picker>
+    <label class="bhr-label" for="tooi_search">{{ 'admin.dept.tooi_picker' | trans }}</label>
+    <input type="search" class="bhr-input" id="tooi_search" data-tooi-search
+           placeholder="{{ tooiPlaceholder | default('bijv. gemeente Utrecht') }}">
+    <p class="bhr-form-help">{{ 'admin.dept.tooi_picker_help' | trans }}</p>
+
+    <ul data-tooi-results class="mt-2 hidden divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white text-sm shadow-sm"></ul>
+</div>
+
+<script nonce="{{ csp_nonce() }}">
+    document.addEventListener('DOMContentLoaded', function () {
+        var box = document.querySelector('[data-tooi-picker]');
+        if (!box) return;
+        var input = box.querySelector('[data-tooi-search]');
+        var list = box.querySelector('[data-tooi-results]');
+        var timer = null;
+        input.addEventListener('input', function () {
+            clearTimeout(timer);
+            var q = input.value.trim();
+            if (q.length < 2) { list.classList.add('hidden'); list.innerHTML = ''; return; }
+            timer = setTimeout(function () {
+                fetch('/balie/tooi/zoek-org?q=' + encodeURIComponent(q))
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        list.innerHTML = '';
+                        var items = d.results || [];
+                        items.slice(0, 8).forEach(function (item) {
+                            var li = document.createElement('li');
+                            li.className = 'px-3 py-2 cursor-pointer hover:bg-gray-100';
+                            li.textContent = item.label;
+                            li.addEventListener('click', function () {
+                                var labelField = document.getElementById('{{ tooiFieldPrefix }}_tooiLabel');
+                                var uriField = document.getElementById('{{ tooiFieldPrefix }}_tooiUri');
+                                var nameField = document.getElementById('{{ tooiFieldPrefix }}_name');
+                                if (labelField) labelField.value = item.label;
+                                if (uriField) uriField.value = item.uri;
+                                if (nameField && !nameField.value.trim()) nameField.value = item.label;
+                                list.classList.add('hidden');
+                            });
+                            list.appendChild(li);
+                        });
+                        list.classList.toggle('hidden', items.length === 0);
+                    })
+                    .catch(function () { list.classList.add('hidden'); });
+            }, 300);
+        });
+    });
+</script>
