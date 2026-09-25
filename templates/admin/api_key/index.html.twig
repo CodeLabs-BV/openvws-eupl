@@ -4,6 +4,23 @@
 
 {% block body %}
     <div class="bhr-container">
+        <style nonce="{{ csp_nonce() }}">
+            .api-ai-card {
+                background: #ffffff;
+                border: 1px solid #d5d7dd;
+                border-radius: 8px;
+                box-shadow: 0 1px 4px rgb(15 23 42 / 0.08);
+                padding: 1.5rem;
+                margin-bottom: 1.5rem;
+            }
+            .api-ai-stat-card {
+                background: #ffffff;
+                border: 1px solid #e2e5ea;
+                border-radius: 8px;
+                box-shadow: 0 1px 3px rgb(15 23 42 / 0.06);
+                padding: 1rem;
+            }
+        </style>
         <twig:Admin:LeftAndRight>
             <h1 class="bhr-title">{{ page_title }}</h1>
 
@@ -14,7 +31,7 @@
             </twig:block>
         </twig:Admin:LeftAndRight>
 
-        <div class="bhr-card">
+        <div class="api-ai-card">
             {% include 'admin/shared/flash-messages.html.twig' %}
 
             <div class="mb-8">
@@ -108,7 +125,7 @@
             </section>
         </div>
 
-        <div class="bhr-card">
+        <div class="api-ai-card">
             {# --- 2. AI-MODEL / AGENT + 3. VERBRUIK --- #}
             <section id="modelbeheer" class="scroll-mt-8">
                 <h2 class="bhr-h2">{{ 'admin.ai.model_title' | trans }}</h2>
@@ -139,15 +156,15 @@
                 <h2 class="bhr-h2">{{ 'admin.ai.usage_title' | trans }}</h2>
 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-                    <div class="bhr-card">
+                    <div class="api-ai-stat-card">
                         <p class="bhr-label">{{ 'admin.ai.usage_tokens' | trans }}</p>
                         <p class="bhr-h2">{{ usage.totalTokens | number_format(0, ',', '.') }}</p>
                     </div>
-                    <div class="bhr-card">
+                    <div class="api-ai-stat-card">
                         <p class="bhr-label">{{ 'admin.ai.usage_spend' | trans }}</p>
                         <p class="bhr-h2">€ {{ usage.totalSpend | number_format(4, ',', '.') }}</p>
                     </div>
-                    <div class="bhr-card">
+                    <div class="api-ai-stat-card">
                         <p class="bhr-label">{{ 'admin.ai.usage_budget' | trans }}</p>
                         <p class="bhr-h2">{{ usage.budget is not null ? '€ ' ~ usage.budget | number_format(2, ',', '.') : '—' }}</p>
                     </div>
