@@ -31,18 +31,18 @@
     {% import "public/macros/main-nav.html.twig" as macro %}
 
     <body class="antialiased flex min-h-screen flex-col text-lg">
+        <div
+            class="woo-demo-ribbon"
+            role="note"
+            style="background:#b91c1c;color:#fff;text-align:center;padding:8px 16px;font-weight:700;font-size:0.875rem;line-height:1.25;"
+        >
+            {{ 'public.global.demo_ribbon' | trans }}
+        </div>
         <header>
             <a href="#main-content" class="woo-skip-link woo-skip-link--to-main-content">{{ 'global.skip_link' | trans() }}</a>
 
             <p>
                 <a class="woo-logo" href="{{ path('app_home') }}">
-                    <twig:Icon
-                        class="woo-icon woo-logo__img"
-                        name="ro-logo"
-                        path="/img/public/non-free/icons.svg"
-                        height="100"
-                        width="50"
-                    />
                     <span class="woo-logo__text">{{ 'public.global.logo.text' | trans }}</span><span class="sr-only">, {{ 'public.global.logo.label' | trans }}</span>
                 </a>
             </p>

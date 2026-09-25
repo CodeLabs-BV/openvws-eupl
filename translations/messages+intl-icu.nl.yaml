@@ -719,6 +719,7 @@ public.global.subjects: Onderwerpen
 public.global.request_summary: "Samenvatting verzoek"
 public.global.logo.text: "Woo Publicatieplatform"
 public.global.logo.label: "ga naar de homepage"
+public.global.demo_ribbon: "Dit is een demo-omgeving"
 public.global.navigation.accessible.label: "Hoofdnavigatie"
 public.global.label.home: "Home"
 public.global.label.search_publications: "Zoek door alle publicaties"
