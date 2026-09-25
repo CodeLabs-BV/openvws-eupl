@@ -17,6 +17,16 @@
         <div class="bhr-card">
             {% include 'admin/shared/flash-messages.html.twig' %}
 
+            <div class="mb-8">
+                <label class="bhr-label" for="api-ai-section">{{ 'admin.ai.section_selector' | trans }}</label>
+                <select id="api-ai-section" class="bhr-input" data-e2e-name="api-ai-section"
+                        onchange="location.hash = this.value;">
+                    <option value="#tokenbeheer">{{ 'admin.ai.section_tokens' | trans }}</option>
+                    <option value="#modelbeheer">{{ 'admin.ai.section_model' | trans }}</option>
+                    <option value="#verbruik">{{ 'admin.ai.section_usage' | trans }}</option>
+                </select>
+            </div>
+
             {% if createdToken is not null %}
                 <div class="mb-8" data-e2e-name="api-key-created">
                     <twig:Admin:Alert type="info">
@@ -27,72 +37,149 @@
                 </div>
             {% endif %}
 
-            <h2 class="bhr-h2">{{ 'admin.api_key.list_title' | trans }}</h2>
+            {# --- 1. TOKENBEHEER --- #}
+            <section id="tokenbeheer" class="scroll-mt-8">
+                <h2 class="bhr-h2">{{ 'admin.api_key.list_title' | trans }}</h2>
 
-            {% if apiKeys | length > 0 %}
-                <table class="bhr-table" data-e2e-name="api-keys-table">
-                    <thead>
-                        <tr>
-                            <th>{{ 'admin.api_key.name' | trans }}</th>
-                            <th>{{ 'admin.api_key.key' | trans }}</th>
-                            <th>{{ 'admin.api_key.created' | trans }}</th>
-                            <th>{{ 'admin.api_key.expires' | trans }}</th>
-                            <th>{{ 'admin.api_key.last_used' | trans }}</th>
-                            <th>{{ 'admin.api_key.status' | trans }}</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for apiKey in apiKeys %}
+                {% if apiKeys | length > 0 %}
+                    <table class="bhr-table" data-e2e-name="api-keys-table">
+                        <thead>
                             <tr>
-                                <td>{{ apiKey.name }}</td>
-                                <td><code>{{ apiKey.keyPrefix }}…</code></td>
-                                <td>{{ apiKey.createdAt | format_datetime('short', 'short', locale='nl') }}</td>
-                                <td>{{ apiKey.expiresAt ? apiKey.expiresAt | format_datetime('short', 'short', locale='nl') : '—' }}</td>
-                                <td>{{ apiKey.lastUsedAt ? apiKey.lastUsedAt | format_datetime('short', 'short', locale='nl') : '—' }}</td>
-                                <td>
-                                    {% if apiKey.enabled %}
-                                        <span class="bhr-status bhr-status--success">{{ 'admin.api_key.status_active' | trans }}</span>
-                                    {% else %}
-                                        <span class="bhr-status bhr-status--muted">{{ 'admin.api_key.status_revoked' | trans }}</span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-right">
-                                    {% if apiKey.enabled %}
-                                        <form method="post" action="{{ path('app_admin_api_keys_revoke', { id: apiKey.id.toRfc4122 }) }}" onsubmit="return confirm('{{ 'admin.api_key.revoke_confirm' | trans }}');">
-                                            <input type="hidden" name="_token" value="{{ csrf_token('api_key') }}">
-                                            <button type="submit" class="bhr-button bhr-button--danger">{{ 'admin.api_key.revoke' | trans }}</button>
-                                        </form>
-                                    {% endif %}
-                                </td>
+                                <th>{{ 'admin.api_key.name' | trans }}</th>
+                                <th>{{ 'admin.api_key.key' | trans }}</th>
+                                <th>{{ 'admin.api_key.created' | trans }}</th>
+                                <th>{{ 'admin.api_key.expires' | trans }}</th>
+                                <th>{{ 'admin.api_key.last_used' | trans }}</th>
+                                <th>{{ 'admin.api_key.status' | trans }}</th>
+                                <th></th>
                             </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p>{{ 'admin.api_key.none' | trans }}</p>
-            {% endif %}
+                        </thead>
+                        <tbody>
+                            {% for apiKey in apiKeys %}
+                                <tr>
+                                    <td>{{ apiKey.name }}</td>
+                                    <td><code>{{ apiKey.keyPrefix }}…</code></td>
+                                    <td>{{ apiKey.createdAt | format_datetime('short', 'short', locale='nl') }}</td>
+                                    <td>{{ apiKey.expiresAt ? apiKey.expiresAt | format_datetime('short', 'short', locale='nl') : '—' }}</td>
+                                    <td>{{ apiKey.lastUsedAt ? apiKey.lastUsedAt | format_datetime('short', 'short', locale='nl') : '—' }}</td>
+                                    <td>
+                                        {% if apiKey.enabled %}
+                                            <span class="bhr-status bhr-status--success">{{ 'admin.api_key.status_active' | trans }}</span>
+                                        {% else %}
+                                            <span class="bhr-status bhr-status--muted">{{ 'admin.api_key.status_revoked' | trans }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-right">
+                                        {% if apiKey.enabled %}
+                                            <form method="post" action="{{ path('app_admin_api_keys_revoke', { id: apiKey.id.toRfc4122 }) }}" onsubmit="return confirm('{{ 'admin.api_key.revoke_confirm' | trans }}');">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('api_key') }}">
+                                                <button type="submit" class="bhr-button bhr-button--danger">{{ 'admin.api_key.revoke' | trans }}</button>
+                                            </form>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p>{{ 'admin.api_key.none' | trans }}</p>
+                {% endif %}
+
+                <hr class="bhr-divider">
+
+                <h3 class="bhr-h2">{{ 'admin.api_key.create_title' | trans }}</h3>
+
+                <form method="post" action="{{ path('app_admin_api_keys_create') }}" data-e2e-name="create-api-key">
+                    <input type="hidden" name="_token" value="{{ csrf_token('api_key') }}">
+
+                    <div class="bhr-form-group">
+                        <label class="bhr-label" for="api_key_name">{{ 'admin.api_key.name' | trans }}</label>
+                        <input class="bhr-input" id="api_key_name" name="name" type="text" maxlength="255" required>
+                    </div>
+
+                    <div class="bhr-form-group">
+                        <label class="bhr-label" for="api_key_expires">{{ 'admin.api_key.expires_optional' | trans }}</label>
+                        <input class="bhr-input" id="api_key_expires" name="expires_at" type="datetime-local">
+                        <p class="bhr-form-help">{{ 'admin.api_key.expires_help' | trans }}</p>
+                    </div>
+
+                    <button type="submit" class="bhr-btn-filled-primary">{{ 'admin.api_key.create' | trans }}</button>
+                </form>
+            </section>
 
             <hr class="bhr-divider">
 
-            <h2 class="bhr-h2">{{ 'admin.api_key.create_title' | trans }}</h2>
+            {# --- 2. AI-MODEL / AGENT --- #}
+            <section id="modelbeheer" class="scroll-mt-8">
+                <h2 class="bhr-h2">{{ 'admin.ai.model_title' | trans }}</h2>
 
-            <form method="post" action="{{ path('app_admin_api_keys_create') }}" data-e2e-name="create-api-key">
-                <input type="hidden" name="_token" value="{{ csrf_token('api_key') }}">
+                <p class="bhr-form-help mb-4">{{ 'admin.ai.model_help' | trans }}</p>
 
-                <div class="bhr-form-group">
-                    <label class="bhr-label" for="api_key_name">{{ 'admin.api_key.name' | trans }}</label>
-                    <input class="bhr-input" id="api_key_name" name="name" type="text" maxlength="255" required>
+                <form method="post" action="{{ path('app_admin_ai_model_save') }}" data-e2e-name="ai-model-form">
+                    <input type="hidden" name="_token" value="{{ csrf_token('api_key') }}">
+
+                    <div class="bhr-form-group">
+                        <label class="bhr-label" for="ai_model">{{ 'admin.ai.model_label' | trans }}</label>
+                        <select class="bhr-input" id="ai_model" name="model">
+                            {% for model in availableModels %}
+                                <option value="{{ model }}" {% if model == activeModel %}selected{% endif %}>{{ model }}</option>
+                            {% endfor %}
+                        </select>
+                        <p class="bhr-form-help">{{ 'admin.ai.model_current' | trans({'model': activeModel}) }}</p>
+                    </div>
+
+                    <button type="submit" class="bhr-btn-filled-primary">{{ 'admin.ai.model_save' | trans }}</button>
+                </form>
+            </section>
+
+            <hr class="bhr-divider">
+
+            {# --- 3. VERBRUIK --- #}
+            <section id="verbruik" class="scroll-mt-8">
+                <h2 class="bhr-h2">{{ 'admin.ai.usage_title' | trans }}</h2>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                    <div class="bhr-card">
+                        <p class="bhr-label">{{ 'admin.ai.usage_tokens' | trans }}</p>
+                        <p class="bhr-h2">{{ usage.totalTokens | number_format(0, ',', '.') }}</p>
+                    </div>
+                    <div class="bhr-card">
+                        <p class="bhr-label">{{ 'admin.ai.usage_spend' | trans }}</p>
+                        <p class="bhr-h2">€ {{ usage.totalSpend | number_format(4, ',', '.') }}</p>
+                    </div>
+                    <div class="bhr-card">
+                        <p class="bhr-label">{{ 'admin.ai.usage_budget' | trans }}</p>
+                        <p class="bhr-h2">{{ usage.budget is not null ? '€ ' ~ usage.budget | number_format(2, ',', '.') : '—' }}</p>
+                    </div>
                 </div>
 
-                <div class="bhr-form-group">
-                    <label class="bhr-label" for="api_key_expires">{{ 'admin.api_key.expires_optional' | trans }}</label>
-                    <input class="bhr-input" id="api_key_expires" name="expires_at" type="datetime-local">
-                    <p class="bhr-form-help">{{ 'admin.api_key.expires_help' | trans }}</p>
-                </div>
-
-                <button type="submit" class="bhr-btn-filled-primary">{{ 'admin.api_key.create' | trans }}</button>
-            </form>
+                {% if usage.logs | length > 0 %}
+                    <table class="bhr-table" data-e2e-name="ai-usage-table">
+                        <thead>
+                            <tr>
+                                <th>{{ 'admin.ai.usage_model' | trans }}</th>
+                                <th>{{ 'admin.ai.usage_tokens' | trans }}</th>
+                                <th>{{ 'admin.ai.usage_spend' | trans }}</th>
+                                <th>{{ 'admin.ai.usage_status' | trans }}</th>
+                                <th>{{ 'admin.ai.usage_at' | trans }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in usage.logs | slice(0, 25) %}
+                                <tr>
+                                    <td>{{ log.model }}</td>
+                                    <td>{{ log.tokens | number_format(0, ',', '.') }}</td>
+                                    <td>€ {{ log.spend | number_format(4, ',', '.') }}</td>
+                                    <td>{{ log.status }}</td>
+                                    <td>{{ log.at }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p>{{ 'admin.ai.usage_none' | trans }}</p>
+                {% endif %}
+            </section>
         </div>
     </div>
 {% endblock %}

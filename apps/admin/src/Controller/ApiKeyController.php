@@ -7,6 +7,7 @@ namespace Admin\Controller;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use RuntimeException;
+use Shared\Ai\AiAssistant;
 use Shared\Domain\ApiKey\ApiKey;
 use Shared\Domain\ApiKey\ApiKeyRepository;
 use Shared\Service\Security\Authorization\AuthorizationMatrix;
@@ -26,6 +27,7 @@ class ApiKeyController extends AbstractController
         private readonly AuthorizationMatrix $authorizationMatrix,
         private readonly EntityManagerInterface $entityManager,
         private readonly RequestStack $requestStack,
+        private readonly AiAssistant $aiAssistant,
     ) {
     }
 
@@ -41,6 +43,9 @@ class ApiKeyController extends AbstractController
             'organisation' => $organisation,
             'apiKeys' => $apiKeys,
             'createdToken' => $this->getCreatedTokenFromFlash(),
+            'activeModel' => $this->aiAssistant->getActiveModel(),
+            'availableModels' => $this->aiAssistant->getAvailableModels(),
+            'usage' => $this->aiAssistant->getUsage(),
         ]);
     }
 
@@ -106,6 +111,26 @@ class ApiKeyController extends AbstractController
         $this->entityManager->flush();
 
         $this->addFlash('backend', ['success' => 'admin.api_key.revoke_success']);
+
+        return $this->redirectToRoute('app_admin_api_management');
+    }
+
+    #[Route('/balie/api-beheer/model', name: 'app_admin_ai_model_save', methods: ['POST'])]
+    public function saveModel(Request $request): Response
+    {
+        if (! $this->isCsrfTokenValid('api_key', (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Invalid CSRF token.');
+        }
+
+        $model = trim((string) $request->request->get('model', ''));
+        if ($model === '') {
+            $this->addFlash('backend', ['danger' => 'admin.ai.model_required']);
+
+            return $this->redirectToRoute('app_admin_api_management');
+        }
+
+        $this->aiAssistant->setActiveModel($model);
+        $this->addFlash('backend', ['success' => 'admin.ai.model_saved']);
 
         return $this->redirectToRoute('app_admin_api_management');
     }
