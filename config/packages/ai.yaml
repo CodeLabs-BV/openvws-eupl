@@ -1,0 +1,28 @@
+# Symfony AI — LiteLLM gateway (CT113:4000, VDC)
+# All modules can inject Symfony\AI\Agent\AgentInterface (default agent) or
+# reference ai.agent.<name> services. Usage/spend is measured by LiteLLM
+# (per-key spend logs) and mirrored in the agent result metadata.
+ai:
+    platform:
+        generic:
+            litellm:
+                base_url: '%env(LITELLM_HOST_URL)%'   # http://10.10.1.113:4000
+                api_key: '%env(LITELLM_API_KEY)%'
+    agent:
+        default:
+            platform: 'ai.platform.generic.litellm'
+            model: 'qwen-agent'
+            prompt:
+                text: 'Je bent een behulpzame assistent voor het OpenVWS Woo-publicatieplatform. Antwoord kort en in het Nederlands.'
+            tools: false
+
+services:
+    Symfony\AI\Platform\Bridge\Generic\ModelCatalog:
+        $models:
+            qwen-agent:
+                class: 'Symfony\AI\Platform\Bridge\Generic\CompletionsModel'
+                capabilities:
+                    - !php/const Symfony\AI\Platform\Capability::INPUT_MESSAGES
+                    - !php/const Symfony\AI\Platform\Capability::OUTPUT_TEXT
+                    - !php/const Symfony\AI\Platform\Capability::OUTPUT_STREAMING
+                    - !php/const Symfony\AI\Platform\Capability::TOOL_CALLING
